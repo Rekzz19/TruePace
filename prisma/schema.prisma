@@ -12,7 +12,7 @@ model Profile {
   id              String   @id
   displayName     String?
   experienceLevel String? // 'beginner', 'intermediate', 'advanced', 'professional'
-  goal            String?
+  goal            Goal
   daysAvailable   String[]
   injuryHistory   String?
   createdAt       DateTime @default(now())
@@ -79,4 +79,10 @@ enum Status {
   SCHEDULED
   COMPLETED
   SKIPPED
+}
+
+enum Goal {
+  TARGET_5K
+  TARGET_10K
+  STAY_ACTIVE
 }
