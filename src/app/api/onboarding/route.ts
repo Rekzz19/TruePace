@@ -9,7 +9,11 @@ export async function POST(request: Request) {
     // Destructuring the data
     const { 
       userId,
-      name, 
+      name,
+      nickname,
+      age,
+      weight,
+      height, 
       goal,          // "TARGET_5K", "TARGET_10K", or "STAY_ACTIVE"
       experience, 
       daysAvailable, // e.g. ["MON", "WED", "SAT"]
@@ -34,6 +38,10 @@ export async function POST(request: Request) {
         goal: goal as Goal, // Force TS to trust this is a valid Enum value
         daysAvailable: daysAvailable, 
         injuryHistory: isInjured ? injuryHistory : null,
+        
+        age: age ? Number(age) : null,
+        weight: weight ? Number(weight) : null,
+        height: height ? Number(height) : null,
       },
       create: {
         id: userId,
@@ -42,6 +50,10 @@ export async function POST(request: Request) {
         goal: goal as Goal,
         daysAvailable: daysAvailable,
         injuryHistory: isInjured ? injuryHistory : null,
+
+        age: age ? Number(age) : null,
+        weight: weight ? Number(weight) : null,
+        height: height ? Number(height) : null,
       },
     });
 
