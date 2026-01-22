@@ -34,6 +34,7 @@ export async function POST(request: Request) {
       where: { id: userId },
       update: {
         displayName: name,
+        nickName: nickname,
         experienceLevel: experience,
         goal: goal as Goal, // Force TS to trust this is a valid Enum value
         daysAvailable: daysAvailable, 
@@ -46,6 +47,7 @@ export async function POST(request: Request) {
       create: {
         id: userId,
         displayName: name,
+        nickName: nickname,
         experienceLevel: experience,
         goal: goal as Goal,
         daysAvailable: daysAvailable,
