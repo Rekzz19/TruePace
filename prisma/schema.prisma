@@ -11,6 +11,11 @@ datasource db {
 model Profile {
   id              String   @id
   displayName     String?
+
+  age             Int?
+  weight          Float?
+  height          Float?
+  
   experienceLevel String? // 'beginner', 'intermediate', 'advanced', 'professional'
   goal            Goal
   daysAvailable   String[]
