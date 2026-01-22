@@ -11,6 +11,7 @@ datasource db {
 model Profile {
   id              String   @id
   displayName     String?
+  nickName        String?
 
   age             Int?
   weight          Float?
