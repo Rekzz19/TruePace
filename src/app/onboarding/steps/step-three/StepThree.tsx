@@ -8,6 +8,7 @@ import {Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { useRouter }   from 'next/navigation';
 
 type stepThreeProps = {
     data: Partial<stepThreeValues>
@@ -31,6 +32,8 @@ export default function StepThree({data, onNext, onBack} : stepThreeProps){
     const onReturn = () => {
         onBack();
     }
+
+    const router =useRouter();
     return(
         <main>
             <div>
@@ -61,6 +64,7 @@ export default function StepThree({data, onNext, onBack} : stepThreeProps){
                                 <Button
                                     type="submit"
                                     className="w=1/2"
+                                    onClick={ () => router.push('/dashboard')}
                                 >
                                     Finish
                                 </Button>

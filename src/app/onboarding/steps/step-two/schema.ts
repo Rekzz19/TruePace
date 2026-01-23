@@ -2,7 +2,7 @@ import { z } from "zod";
 
 export const stepTwoSchema = z.object({
     experienceLevel: z.enum(["BEGINNER", "INTERMEDIATE", "ADVANCED", "PROFESSIONAL"]),
-    runningGoal: z.coerce.number().min(1, "Enter your running goal"),
+    runningGoal: z.enum(["TWO-KM", "FIVE-KM", "TEN-KM", "MARATHON"]),
     availability: z.array(z.enum([
         "monday",
         "tuesday",
