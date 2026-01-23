@@ -14,9 +14,10 @@ type stepThreeProps = {
     data: Partial<stepThreeValues>
     onNext:(values : stepThreeValues) => void
     onBack: () => void
+    isLoading: boolean
 } 
 
-export default function StepThree({data, onNext, onBack} : stepThreeProps){
+export default function StepThree({data, onNext, onBack, isLoading} : stepThreeProps){
 
     const form = useForm({
         resolver:zodResolver(stepThreeSchema),
@@ -64,9 +65,10 @@ export default function StepThree({data, onNext, onBack} : stepThreeProps){
                                 <Button
                                     type="submit"
                                     className="w=1/2"
-                                    onClick={ () => router.push('/dashboard')}
+                                    // onClick={}
+                                    disabled={isLoading}
                                 >
-                                    Finish
+                                    {isLoading ? 'Saving...' : 'Finish'}
                                 </Button>
                             </CardFooter>
                         </CardContent>

@@ -8,6 +8,7 @@ import StepThree from "./steps/step-three/StepThree";
 import { stepOneValues } from "./steps/step-one/schema";
 import { stepTwoValues } from "./steps/step-two/schema";
 import { stepThreeValues } from "./steps/step-three/schema";
+import { useRouter }   from 'next/navigation';
 
 type OnboardingData = Partial<stepOneValues & stepTwoValues & stepThreeValues>;
 
@@ -16,7 +17,12 @@ export default function OnboardingPage(){
     const [ step, setStep] = useState(1);
     const [ data, setData] = useState<OnboardingData>({});
     const [ isLoading, setIsLoading] = useState(false);
+    const [ error, setError ] = useState<string | null>(null);
+    const [ success, setSuccess ] = useState(false);
 
+    const router = useRouter();
+
+    
     const handleStepOneNext = (values : stepOneValues) => {
         setData((prev) => ({...prev, ...values}))
         setStep(2);
@@ -32,7 +38,6 @@ export default function OnboardingPage(){
         
         const completeData = { ...data, ...values };
         
-        // Map frontend data to API format
         const apiData = {
             userId: 'temp-user-id', // TODO: Get from Supabase auth
             name: completeData.fullName,
@@ -44,7 +49,7 @@ export default function OnboardingPage(){
             experience: completeData.experienceLevel,
             daysAvailable: completeData.availability,
             isInjured: !!completeData.injuryHistory && completeData.injuryHistory !== 'none',
-            injuryHistory: completeData.injuryHistory
+            injuryHistory: completeData.injuryHistory || null
         };
 
         try {
@@ -59,16 +64,17 @@ export default function OnboardingPage(){
             if (response.ok) {
                 const result = await response.json();
                 console.log('Profile saved:', result);
-                // TODO: Redirect to dashboard or plan generation
+                setSuccess(true);
                 setData((prev) => ({...prev, ...values}));
+                router.push('/dashboard');
             } else {
                 const error = await response.json();
                 console.error('API Error:', error);
-                // TODO: Show error to user
+                setError(error.error || 'An error occurred') 
             }
         } catch (error) {
             console.error('Network Error:', error);
-            // TODO: Show error to user
+            setError('Network error, please try again.')
         } finally {
             setIsLoading(false);
         }
@@ -105,7 +111,13 @@ export default function OnboardingPage(){
 
             {step === 2 && <StepTwo data={data} onNext={handleStepTwoNext} onBack={handleStepTwoBack}/>}
 
-            {step == 3 && <StepThree data={data} onNext={handleStepThreeNext} onBack={handleStepThreeBack}/>}
+            {step == 3 && <StepThree data={data} onNext={handleStepThreeNext} onBack={handleStepThreeBack} isLoading={isLoading}/>}
+
+            {step == 3 && (
+                <p className="text-red-500 text-xs mt-1">
+                    {error}
+                </p>
+            )}
         </>
   );
 }

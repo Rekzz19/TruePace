@@ -13,7 +13,7 @@ export const stepTwoSchema = z.object({
         "sunday",
       ])
     ).min(1, "Select at least one day"),
-    injuryHistory: z.string().min(1),
+    injuryHistory: z.string().optional(),
 
 });
 
