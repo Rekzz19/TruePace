@@ -88,7 +88,9 @@ enum Status {
 }
 
 enum Goal {
+  TARGET_2K
   TARGET_5K
   TARGET_10K
+  TARGET_MARATHON
   STAY_ACTIVE
 }
