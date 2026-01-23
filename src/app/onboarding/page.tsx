@@ -45,7 +45,7 @@ export default function OnboardingPage(){
             age: completeData.age,
             weight: completeData.weight,
             height: completeData.height,
-            goal: mapRunningGoalToGoalEnum(completeData.runningGoal),
+            goal:  completeData.runningGoal || 'STAY_ACTIVE',
             experience: completeData.experienceLevel,
             daysAvailable: completeData.availability,
             isInjured: !!completeData.injuryHistory && completeData.injuryHistory !== 'none',
@@ -77,22 +77,6 @@ export default function OnboardingPage(){
             setError('Network error, please try again.')
         } finally {
             setIsLoading(false);
-        }
-    };
-
-    // Helper function to map running goal to Goal enum
-    const mapRunningGoalToGoalEnum = (runningGoal?: string): string => {
-        switch (runningGoal) {
-            case 'TWO-KM':
-                return 'TARGET_5K'; // Map to closest available goal
-            case 'FIVE-KM':
-                return 'TARGET_5K';
-            case 'TEN-KM':
-                return 'TARGET_10K';
-            case 'MARATHON':
-                return 'TARGET_10K'; // Map marathon to 10K for now
-            default:
-                return 'STAY_ACTIVE';
         }
     };
 
