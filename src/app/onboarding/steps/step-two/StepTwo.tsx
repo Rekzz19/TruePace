@@ -5,7 +5,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { stepTwoSchema, stepTwoValues } from "./schema";
 
 import {Card, CardAction, CardContent, CardDescription, CardFooter, CardHeader, CardTitle,} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
@@ -90,10 +89,10 @@ export default function StepTwo({data, onNext, onBack} : stepTwoProps){
                                 className="w-full rounded-md bg-black border border-gray-800 text-white px-3 py-2 focus:border-[#FF6600] focus:ring-[#FF6600] transition-all"
                             >
                                 <option value="">Select goal</option>
-                                <option value="STAY_ACTIVE">staying active</option>
-                                <option value="TARGET_2K">target 2KM</option>
-                                <option value="TARGET_5K">target 5KM</option>
-                                <option value="TARGET_10K">target 10KM</option>
+                                <option value="STAY_ACTIVE">Staying Active</option>
+                                <option value="TARGET_2K">Target 2KM</option>
+                                <option value="TARGET_5K">Target 5KM</option>
+                                <option value="TARGET_10K">Target 10KM</option>
                                 <option value="TARGET_MARATHON">Marathon - 26.2 miles</option>
                             </select>
                             {form.formState.errors.runningGoal && (
@@ -123,13 +122,13 @@ export default function StepTwo({data, onNext, onBack} : stepTwoProps){
                                     key={day}
                                     className="flex items-center gap-2 text-sm text-gray-300 capitalize"
                                 >
-                                    <input
+                                <input
                                     type="checkbox"
                                     value={day}
                                     {...form.register("availability")}
                                     className="accent-[#FF6600]"
-                                    />
-                                    {day}
+                                />
+                                {day}
                                 </label>
                                 ))}
                             </div>

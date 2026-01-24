@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const stepOneSchema = z.object({
-    fullName: z.string().min(1),
+    fullName: z.string().min(1, "Enter your name"),
     age: z.coerce.number().min(15, "Age should be greater than 15"),
     weight: z.coerce.number().min(1, "Enter your weight"),
     height: z.coerce.number().min(1, "Enter your height"),
