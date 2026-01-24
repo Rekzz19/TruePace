@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Profile {
+  id              String   @id
+  displayName     String?
+  nickName        String?
+
+  age             Int?
+  weight          Float?
+  height          Float?
+  
+  experienceLevel String? // 'beginner', 'intermediate', 'advanced', 'professional'
+  goal            Goal
+  daysAvailable   String[]
+  injuryHistory   String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  trainingPlans TrainingPlan[]
+  runLogs       RunLog[]
+
+  @@map("profiles") // Save it as 'profiles' in the DB
+}
+
+model TrainingPlan {
+  id            String       @id @default(uuid())
+  userId        String
+  scheduledDate DateTime
+  activityType  ActivityType // 'run', 'rest', 'cross_train' (this is basically cardio that isnt running so legs dont injure)
+
+  // Targets (this is what the AI plans for the user, may not actually be met)
+  targetDistanceKm  Float?
+  targetDurationMin Int?
+  targetRpe         Int? // RPE is 'Rate of Perceived Exertion' or the 'effort' put into the run - scale of 1 - 10
+
+  // AI Logic
+  description String?
+  aiReasoning String?
+  status      Status  @default(SCHEDULED) // 'scheduled', 'completed', 'skipped'
+
+  // Relation
+  user    Profile  @relation(fields: [userId], references: [id])
+  runLogs RunLog[]
+
+  @@map("training_plan")
+}
+
+model RunLog {
+  id     String  @id @default(uuid())
+  userId String
+  planId String?
+
+  // Actuals
+  actualDistanceKm  Float?
+  actualDurationMin Int?
+  actualRpe         Int?
+
+  painReported Boolean  @default(false)
+  notes        String?
+  loggedAt     DateTime @default(now())
+
+  // Relations
+  user         Profile       @relation(fields: [userId], references: [id])
+  trainingPlan TrainingPlan? @relation(fields: [planId], references: [id])
+
+  @@map("run_logs")
+}
+
+enum ActivityType {
+  RUN
+  REST
+  CROSS_TRAIN
+}
+
+enum Status {
+  SCHEDULED
+  COMPLETED
+  SKIPPED
+}
+
+enum Goal {
+  TARGET_2K
+  TARGET_5K
+  TARGET_10K
+  TARGET_MARATHON
+  STAY_ACTIVE
+}
