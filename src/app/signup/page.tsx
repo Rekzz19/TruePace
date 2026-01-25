@@ -48,6 +48,10 @@ export default function SignUp() {
 
       if (response.ok) {
         console.log('Signup successful:', result);
+        // Store user ID for onboarding
+        if (result.user?.id) {
+          localStorage.setItem('userId', result.user.id);
+        }
         // Redirect to onboarding after successful signup
         router.push('/onboarding');
       } else {
