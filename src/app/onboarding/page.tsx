@@ -38,8 +38,17 @@ export default function OnboardingPage(){
         
         const completeData = { ...data, ...values };
         
+        // Get real user ID from localStorage (set during signup)
+        const userId = localStorage.getItem('userId');
+        
+        if (!userId) {
+            setError('User session not found. Please sign up again.');
+            setIsLoading(false);
+            return;
+        }
+        
         const apiData = {
-            userId: 'temp-user-id', // TODO: Get from Supabase auth
+            userId: userId, // ✅ Real user ID from Supabase auth
             name: completeData.fullName,
             nickname: completeData.username,
             age: completeData.age,
