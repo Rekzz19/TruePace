@@ -21,6 +21,7 @@ import { signupSchema, SignupValues } from "./schema";
 export default function SignUp() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const form = useForm<SignupValues>({
     resolver: zodResolver(signupSchema),
@@ -32,15 +33,30 @@ export default function SignUp() {
 
   const onSubmit = async (values: SignupValues) => {
     setIsLoading(true);
+    setError(null);
+    
     try {
-      // TODO: Implement Supabase signup
-      console.log("Signup data:", values);
-      // For now, just redirect to onboarding
-      setTimeout(() => {
-        router.push("/onboarding");
-      }, 1000);
+      const response = await fetch('/api/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        console.log('Signup successful:', result);
+        // Redirect to onboarding after successful signup
+        router.push('/onboarding');
+      } else {
+        console.error('Signup error:', result);
+        setError(result.error || 'Failed to create account');
+      }
     } catch (error) {
-      console.error("Signup error:", error);
+      console.error('Network error:', error);
+      setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -121,6 +137,13 @@ export default function SignUp() {
                 >
                   {isLoading ? "Creating Account..." : "Sign Up"}
                 </Button>
+
+                {/* Error Display */}
+                {error && (
+                  <p className="text-red-500 text-xs text-center">
+                    {error}
+                  </p>
+                )}
 
                 <div className="flex items-center gap-2 text-sm text-gray-400">
                   <span>Already have an account?</span>
