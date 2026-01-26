@@ -3,24 +3,20 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-
-import {Card, CardContent, CardDescription, CardHeader, CardTitle,} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle,} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { loginSchema, LoginValues } from "./schema";
+import { supabase } from '@/lib/supabase'
 
-// Login schema for validation
-const loginSchema = z.object({
-  email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Invalid Password"),
-});
 
-type LoginValues = z.infer<typeof loginSchema>;
 
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(false);
+
   const router = useRouter();
 
   const form = useForm({
@@ -34,15 +30,21 @@ export default function Login() {
   const onSubmit = async (values: LoginValues) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual login logic
-      console.log("Login attempt:", values);
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Redirect to dashboard on success
-      router.push("/dashboard");
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      });
+
+      if (error) {
+        //console.error('Login error:', error.message);
+        //use state to show error
+        setError(true);
+        return
+      }
+
+      router.push('/dashboard')
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("Unexpected Login error:", error);
     } finally {
       setIsLoading(false);
     }
@@ -129,14 +131,17 @@ export default function Login() {
                   Forgot password?
                 </Button>
               </div>
-              {/* Sign In Button */}
-              <Button
-                type="submit"
-                className="w-full bg-[#FF6600] hover:bg-[#e65c00] text-black font-bold uppercase tracking-widest py-6 transition-transform active:scale-95"
-                disabled={isLoading}
-              >
-                {isLoading ? "Signing In..." : "Sign In"}
-              </Button>
+              <div>
+                {/* Sign In Button */}
+                <Button
+                  type="submit"
+                  className="w-full bg-[#FF6600] hover:bg-[#e65c00] text-black font-bold uppercase tracking-widest py-6 transition-transform active:scale-95"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Signing In..." : "Sign In"}
+                </Button>
+                {error && <p className="text-red-500 text-xs mt-1">User not found</p>}
+              </div>
 
               {/* Sign Up Section - Inside the card, right under Sign In */}
               <div className="space-y-3">
