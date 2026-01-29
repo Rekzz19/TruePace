@@ -2,99 +2,47 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UpcomingRun } from "@/components/dashboard/UpcomingRun";
-import { WeeklyCalendar } from "@/components/dashboard/WeeklyCalendar";
-import { ProgressChart } from "@/components/dashboard/ProgressChart";
-import { RunCompletionModal } from "@/components/dashboard/RunCompletionModal";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
-
-// Type definitions
-interface ScheduleItem {
-  day: string;
-  type: string;
-  distance: string;
-  intensity: string;
-  completed: boolean;
-}
-
-interface ProgressData {
-  week: string;
-  distance: number;
-  runs: number;
-}
-
-interface UserProfile {
-  displayName: string;
-  goal: string;
-  experienceLevel: string;
-  daysAvailable: string[];
-}
-
-interface RunData {
-  run: ScheduleItem;
-  completed: boolean;
-  actualDistance?: string;
-  duration?: string;
-  rpe: number;
-  pain?: string;
-  notes?: string;
-  howFelt?: string;
-  timestamp: string;
-}
-
-// Mock data for development
-const mockUserProfile: UserProfile = {
-  displayName: "Alex Runner",
-  goal: "TARGET_5K",
-  experienceLevel: "BEGINNER",
-  daysAvailable: ["monday", "wednesday", "friday"],
-};
-
-const mockWeeklySchedule = [
-  { day: "Monday", type: "Easy Run", distance: "2km", intensity: "Low", completed: false },
-  { day: "Tuesday", type: "Rest", distance: "-", intensity: "-", completed: true },
-  { day: "Wednesday", type: "Tempo Run", distance: "3km", intensity: "Medium", completed: false },
-  { day: "Thursday", type: "Rest", distance: "-", intensity: "-", completed: false },
-  { day: "Friday", type: "Long Run", distance: "4km", intensity: "Medium", completed: false },
-  { day: "Saturday", type: "Cross Training", distance: "30min", intensity: "Low", completed: false },
-  { day: "Sunday", type: "Rest", distance: "-", intensity: "-", completed: false },
-];
-
-const mockProgressData = [
-  { week: "Week 1", distance: 8, runs: 3 },
-  { week: "Week 2", distance: 12, runs: 4 },
-  { week: "Week 3", distance: 15, runs: 4 },
-  { week: "Week 4", distance: 18, runs: 5 },
-];
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Card, CardContent } from "@/components/ui/card";
 
 export default function Dashboard() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile>(mockUserProfile);
-  const [weeklySchedule, setWeeklySchedule] = useState<ScheduleItem[]>(mockWeeklySchedule);
-  const [progressData, setProgressData] = useState<ProgressData[]>(mockProgressData);
-  const [showRunModal, setShowRunModal] = useState(false);
-  const [selectedRun, setSelectedRun] = useState<ScheduleItem | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [messages, setMessages] = useState([
+    { role: "assistant", content: "Good morning! Ready for your 5km today?" },
+    { role: "user", content: "Actually, my legs feel a bit heavy." },
+    {
+      role: "assistant",
+      content: "Noted. I can switch today to a Recovery Run if you prefer?",
+    },
+  ]);
 
   // Check authentication on mount
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
         if (!user) {
-          router.push('/login');
+          router.push("/login");
           return;
         }
         setUser(user);
-        // TODO: Fetch actual user profile from API
-        // await fetchUserProfile(user.id);
       } catch (error) {
-        console.error('Auth error:', error);
-        router.push('/login');
+        console.error("Auth error:", error);
+        router.push("/login");
       } finally {
         setLoading(false);
       }
@@ -102,38 +50,6 @@ export default function Dashboard() {
 
     checkAuth();
   }, [router]);
-
-  // Handle run completion
-  const handleRunComplete = (runData: RunData) => {
-    // TODO: Save run data to database via API
-    console.log('Run completed:', runData);
-    
-    // Update local state to reflect completion
-    if (selectedRun) {
-      setWeeklySchedule(prev => 
-        prev.map(run => 
-          run.day === selectedRun.day ? { ...run, completed: true } : run
-        )
-      );
-    }
-    
-    setShowRunModal(false);
-    setSelectedRun(null);
-    
-    // TODO: Trigger AI re-scheduling based on user feedback
-    // await rescheduleWithAI(runData);
-  };
-
-  const handleRunMissed = (runData: RunData) => {
-    // TODO: Handle missed run - trigger AI rescheduling
-    console.log('Run missed:', runData);
-    setShowRunModal(false);
-    setSelectedRun(null);
-    
-    // TODO: AI Integration Point - Reschedule based on user feedback
-    // Consider user's reasons, fatigue, injury concerns
-    // await rescheduleWithAI({ ...runData, missed: true });
-  };
 
   if (loading) {
     return (
@@ -144,93 +60,114 @@ export default function Dashboard() {
   }
 
   return (
-    <main className="min-h-screen bg-black text-white p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-white">
-              Welcome back, {userProfile.displayName}! 👋
-            </h1>
-            <p className="text-gray-400">
-              Goal: {userProfile.goal.replace('_', ' ')} • Level: {userProfile.experienceLevel}
-            </p>
-          </div>
-          <Button 
-            variant="outline" 
-            className="border-gray-700 text-gray-300 hover:bg-gray-800"
-            onClick={() => router.push('/profile')}
-          >
-            Profile Settings
-          </Button>
-        </div>
-
-        {/* Upcoming Run Section */}
-        <UpcomingRun 
-          schedule={weeklySchedule}
-          onComplete={(run) => {
-            setSelectedRun(run);
-            setShowRunModal(true);
-          }}
-          onMissed={(run) => {
-            setSelectedRun(run);
-            setShowRunModal(true);
-          }}
-        />
-
-        <div className="grid lg:grid-cols-2 gap-6">
-          {/* Weekly Calendar */}
-          <WeeklyCalendar 
-            schedule={weeklySchedule}
-            onRunClick={(run) => {
-              setSelectedRun(run);
-              setShowRunModal(true);
-            }}
-          />
-
-          {/* Progress Chart */}
-          <ProgressChart data={progressData} />
-        </div>
-
-        {/* AI Insights Section */}
-        <Card className="bg-[#111111] border-gray-800">
-          <CardHeader>
-            <CardTitle className="text-[#FF6600]">🤖 AI Coach Insights</CardTitle>
-            <CardDescription className="text-gray-400">
-              Personalized recommendations based on your progress
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              <div className="p-3 bg-[#1a1a1a] rounded-lg border border-gray-700">
-                <p className="text-sm text-gray-300">
-                  💡 <strong>Tip:</strong> You're consistently hitting your weekly targets! 
-                  Consider increasing your long run distance by 0.5km next week.
-                </p>
-              </div>
-              <div className="p-3 bg-[#1a1a1a] rounded-lg border border-gray-700">
-                <p className="text-sm text-gray-300">
-                  🎯 <strong>Focus:</strong> Your Wednesday tempo runs show great improvement. 
-                  Keep focusing on maintaining that pace consistency.
-                </p>
-              </div>
-              {/* TODO: Add more AI insights based on actual user data */}
-            </div>
-          </CardContent>
-        </Card>
+    <main className="h-screen bg-black text-white flex flex-col overflow-hidden">
+      <div className="container mx-auto px-6 py-4 shrink-0">
+        <h1 className="text-3xl md:text-5xl font-black tracking-tighter italic text-white uppercase">
+          DASHBOARD
+        </h1>
+        <p className="text-gray-400 text-sm md:text-base">Keep up the pace!</p>
       </div>
 
-      {/* Run Completion Modal */}
-      <RunCompletionModal
-        isOpen={showRunModal}
-        onClose={() => {
-          setShowRunModal(false);
-          setSelectedRun(null);
-        }}
-        run={selectedRun}
-        onComplete={handleRunComplete}
-        onMissed={handleRunMissed}
-      />
+      <div className="flex-1 min-h-0 flex justify-center items-center px-4 pb-2">
+        <Carousel className="w-full h-full max-w-7xl [&>div]:h-full basis-[70%]">
+          <CarouselContent className="h-full">
+            {/* ACTION DASHBOARD */}
+            <CarouselItem className="h-full">
+              <div className="h-full flex flex-col md:flex-row gap-4">
+                <Card className="flex-1 bg-neutral-900 border-neutral-800 text-white p-6 flex flex-col justify-center items-start">
+                  <h2 className="text-gray-400 text-sm uppercase">Next Run</h2>
+                  <h1 className="text-4xl font-bold mt-2">5km Tempo</h1>
+                  <p className="mt-2 text-gray-300">Thursday • 18:00</p>
+                  <button className="mt-6 bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200 transition">
+                    Start Run
+                  </button>
+                </Card>
+
+                <Card className="h-1/3 md:h-full md:w-1/3 bg-white text-black p-4 flex flex-col">
+                  <h3 className="font-bold mb-2 shrink-0">This Week</h3>
+                  {/* flex-1 ensures the day list fills the rest of the card */}
+                  <div className="flex-1 flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto">
+                    {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
+                      <div
+                        key={i}
+                        className="min-w-[50px] flex-1 bg-gray-100 rounded flex flex-col md:flex-row items-center justify-center md:justify-between p-2 md:px-4"
+                      >
+                        <span className="text-xs text-gray-400 font-bold">
+                          {day}
+                        </span>
+                        <div
+                          className={`w-2 h-2 rounded-full mt-2 md:mt-0 ${
+                            i === 3 ? "bg-orange-500" : "bg-gray-300"
+                          }`}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
+            </CarouselItem>
+
+            {/* STATS */}
+            <CarouselItem className="h-full">
+              <div className="h-full px-1">
+                <Card className="h-full bg-white text-black p-6 flex flex-col">
+                  <h2 className="text-xl font-bold mb-4 shrink-0">
+                    Your Progress
+                  </h2>
+
+                  <div className="flex-1 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400 mb-4">
+                    [Chart Component]
+                  </div>
+
+                  <div className="shrink-0 grid grid-cols-2 gap-4">
+                    <div className="bg-gray-50 p-4 rounded">
+                      <div className="text-2xl font-bold">24km</div>
+                      <div className="text-xs text-gray-500">
+                        Total Distance
+                      </div>
+                    </div>
+                    <div className="bg-gray-50 p-4 rounded">
+                      <div className="text-2xl font-bold">5:30</div>
+                      <div className="text-xs text-gray-500">Avg Pace</div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            </CarouselItem>
+          </CarouselContent>
+        </Carousel>
+      </div>
+      <div className="flex flex-col justify-center items-center mb-5 w-full max-w-4xl mx-auto flex-1 pt-5 mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl">
+        <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 w-full">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
+                  msg.role === "user"
+                    ? "bg-orange-700 text-white rounded-br-none"
+                    : "bg-neutral-800 text-gray-200 rounded-bl-none border "
+                }`}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {/* Invisible element to auto-scroll to bottom could go here */}
+        </div>
+        <div className="h-[80px] shrink- border-t border-gray-200 p-4 flex items-center gap-2 w-full">
+          <input
+            type="text"
+            placeholder="Talk to Truth..."
+            className="flex-1 bg-gray-100 text-black rounded-full px-4 py-3 outline-none focus:ring-2 focus:ring-black"
+          />
+          <button className="bg-gray-100 text-black w-10 h-10 rounded-full flex items-center justify-center hover:bg-gray-800 transition">
+            ↑
+          </button>
+        </div>
+      </div>
     </main>
   );
 }
