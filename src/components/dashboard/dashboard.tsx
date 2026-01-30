@@ -7,9 +7,18 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
+import RunCompletionModal from "./RunCompletionModal";
 
 export default function Dashboard() {
+  const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+  const sampleData = {
+    id: 'd',
+    targetDistance: 3,
+    targetDuration: 4,
+  };
+
   return (
     <div className="flex-1 min-h-0 flex justify-center items-center px-4 pb-2">
       <Carousel className="w-full h-full max-w-7xl [&>div]:h-full basis-[70%]">
@@ -21,7 +30,10 @@ export default function Dashboard() {
                 <h2 className="text-gray-400 text-sm uppercase">Next Run</h2>
                 <h1 className="text-4xl font-bold mt-2">5km Tempo</h1>
                 <p className="mt-2 text-gray-300">Thursday • 18:00</p>
-                <button className="mt-6 bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200 transition">
+                <button
+                  className="mt-6 bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200 transition"
+                  onClick={() => setIsLogModalOpen(true)}
+                >
                   Start Run
                 </button>
               </Card>
@@ -64,9 +76,7 @@ export default function Dashboard() {
                 <div className="shrink-0 grid grid-cols-2 gap-4">
                   <div className="bg-gray-50 p-4 rounded">
                     <div className="text-2xl font-bold">24km</div>
-                    <div className="text-xs text-gray-500">
-                      Total Distance
-                    </div>
+                    <div className="text-xs text-gray-500">Total Distance</div>
                   </div>
                   <div className="bg-gray-50 p-4 rounded">
                     <div className="text-2xl font-bold">5:30</div>
@@ -78,6 +88,15 @@ export default function Dashboard() {
           </CarouselItem>
         </CarouselContent>
       </Carousel>
+
+      {isLogModalOpen && (
+        <RunCompletionModal
+          isOpen={isLogModalOpen}
+          onClose={() => setIsLogModalOpen(false)}
+          runData={sampleData}
+          onSubmit={() => {}}
+        />
+      )}
     </div>
   );
 }

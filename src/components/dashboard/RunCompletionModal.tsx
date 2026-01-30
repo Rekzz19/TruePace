@@ -12,215 +12,139 @@ import { X, CheckCircle, AlertCircle } from "lucide-react";
 interface RunCompletionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  run: any;
-  onComplete: (runData: any) => void;
-  onMissed: (runData: any) => void;
+  runData: {
+    id: string;
+    targetDistance: number; // e.g. 5
+    targetDuration: number; // e.g. 30 (minutes)
+  };
+  onSubmit: (data: any) => void;
 }
 
-export function RunCompletionModal({ isOpen, onClose, run, onComplete, onMissed }: RunCompletionModalProps) {
-  const [rpe, setRpe] = useState([5]); // Rate of Perceived Exertion (1-10)
-  const [distance, setDistance] = useState("");
-  const [duration, setDuration] = useState("");
-  const [pain, setPain] = useState("");
+export default function RunCompletionModal({ 
+  isOpen, 
+  onClose, 
+  runData, 
+  onSubmit 
+}: RunCompletionModalProps) {
+  
+  // State for the form
+  // We pre-fill with the TARGET data to save the user time (frictionless logging)
+  const [distance, setDistance] = useState(runData.targetDistance.toString());
+  const [duration, setDuration] = useState(runData.targetDuration.toString());
+  const [effort, setEffort] = useState(5); // 1-10 scale
   const [notes, setNotes] = useState("");
-  const [howFelt, setHowFelt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (!isOpen || !run) return null;
+  if (!isOpen) return null;
 
-  const handleSubmit = async (completed: boolean) => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
-    
-    const runData = {
-      run: {
-        day: run.day,
-        type: run.type,
-        plannedDistance: run.distance,
-        plannedIntensity: run.intensity
-      },
-      completed,
-      actualDistance: distance,
-      duration: duration,
-      rpe: rpe[0],
-      pain: pain,
-      notes: notes,
-      howFelt: howFelt,
-      timestamp: new Date().toISOString()
+
+    // Prepare the payload for your API
+    const payload = {
+      runId: runData.id,
+      actualDistance: parseFloat(distance),
+      actualDuration: parseInt(duration), // minutes
+      effortRating: effort,
+      feedbackNotes: notes,
     };
 
-    if (completed) {
-      await onComplete(runData);
-    } else {
-      await onMissed(runData);
-    }
-    
+    // Simulate API delay or call the real function
+    await onSubmit(payload);
     setIsSubmitting(false);
-  };
-
-  const getRpeColor = (value: number) => {
-    if (value <= 3) return 'text-green-400';
-    if (value <= 5) return 'text-yellow-400';
-    if (value <= 7) return 'text-orange-400';
-    return 'text-red-400';
-  };
-
-  const getRpeDescription = (value: number) => {
-    if (value <= 2) return 'Very Easy';
-    if (value <= 4) return 'Easy';
-    if (value <= 6) return 'Moderate';
-    if (value <= 8) return 'Hard';
-    return 'Very Hard';
+    onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <Card className="bg-[#111111] border-gray-800 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
-            <CardTitle className="text-white">
-              {run.day} - {run.type}
-            </CardTitle>
-            <CardDescription className="text-gray-400">
-              Planned: {run.distance} • {run.intensity} intensity
-            </CardDescription>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            className="text-gray-400 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </Button>
-        </CardHeader>
+    // Backdrop
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+      
+      {/* Modal Content */}
+      <div className="w-full max-w-md bg-neutral-900 border border-neutral-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
         
-        <CardContent className="space-y-6">
-          {/* RPE Slider */}
-          <div className="space-y-3">
-            <Label className="text-white font-medium">
-              Rate of Perceived Exertion (RPE): <span className={`font-bold ${getRpeColor(rpe[0])}`}>{rpe[0]}</span>
-            </Label>
-            <div className="text-sm text-gray-400 mb-2">{getRpeDescription(rpe[0])}</div>
-            <Slider
-              value={rpe}
-              onValueChange={setRpe}
-              max={10}
-              min={1}
-              step={1}
-              className="w-full"
-            />
-            <div className="flex justify-between text-xs text-gray-500">
-              <span>1 (Very Easy)</span>
-              <span>5 (Moderate)</span>
-              <span>10 (Very Hard)</span>
-            </div>
-          </div>
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b border-neutral-800">
+          <h2 className="text-xl font-bold text-white italic uppercase tracking-tighter">
+            Run Complete
+          </h2>
+          <button 
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition"
+          >
+            <X size={24} />
+          </button>
+        </div>
 
-          {/* Distance and Duration */}
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          
+          {/* Section 1: The Hard Numbers */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="distance" className="text-white font-medium">
-                Actual Distance (km)
-              </Label>
-              <Input
-                id="distance"
+              <label className="text-xs font-bold text-gray-500 uppercase">Distance (km)</label>
+              <input
                 type="number"
-                step="0.1"
-                placeholder={run.distance}
+                step="0.01"
                 value={distance}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDistance(e.target.value)}
-                className="bg-black border-gray-700 text-white"
+                onChange={(e) => setDistance(e.target.value)}
+                className="w-full bg-neutral-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 border border-neutral-700"
               />
             </div>
-            
             <div className="space-y-2">
-              <Label htmlFor="duration" className="text-white font-medium">
-                Duration (minutes)
-              </Label>
-              <Input
-                id="duration"
+              <label className="text-xs font-bold text-gray-500 uppercase">Time (min)</label>
+              <input
                 type="number"
-                placeholder="30"
                 value={duration}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDuration(e.target.value)}
-                className="bg-black border-gray-700 text-white"
+                onChange={(e) => setDuration(e.target.value)}
+                className="w-full bg-neutral-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 border border-neutral-700"
               />
             </div>
           </div>
 
-          {/* Pain Level */}
-          <div className="space-y-2">
-            <Label htmlFor="pain" className="text-white font-medium">
-              Any Pain or Discomfort?
-            </Label>
-            <Textarea
-              id="pain"
-              placeholder="e.g., Slight knee pain, tight calves, etc."
-              value={pain}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setPain(e.target.value)}
-              className="bg-black border-gray-700 text-white min-h-[80px]"
+          {/* Section 2: Effort Slider (The Data for AI) */}
+          <div className="space-y-3">
+            <div className="flex justify-between items-end">
+              <label className="text-xs font-bold text-gray-500 uppercase">Perceived Effort (RPE)</label>
+              <span className="text-orange-500 font-bold text-lg">{effort}/10</span>
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="10"
+              value={effort}
+              onChange={(e) => setEffort(parseInt(e.target.value))}
+              className="w-full h-2 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-orange-500"
             />
+            <div className="flex justify-between text-[10px] text-gray-500 uppercase font-bold">
+              <span>Easy</span>
+              <span>Moderate</span>
+              <span>Max Effort</span>
+            </div>
           </div>
 
-          {/* How Felt */}
+          {/* Section 3: Feedback (The Context for AI) */}
           <div className="space-y-2">
-            <Label htmlFor="howFelt" className="text-white font-medium">
-              How Did You Feel During the Run?
-            </Label>
-            <Textarea
-              id="howFelt"
-              placeholder="e.g., Felt strong, struggled at the end, breathing was heavy, etc."
-              value={howFelt}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setHowFelt(e.target.value)}
-              className="bg-black border-gray-700 text-white min-h-[80px]"
-            />
-          </div>
-
-          {/* Additional Notes */}
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="text-white font-medium">
-              Additional Notes
-            </Label>
-            <Textarea
-              id="notes"
-              placeholder="Weather, terrain, mood, anything else the AI coach should know..."
+            <label className="text-xs font-bold text-gray-500 uppercase">How did it feel?</label>
+            <textarea
               value={notes}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)}
-              className="bg-black border-gray-700 text-white min-h-[100px]"
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g. Felt strong, but my left knee tweaked a bit at 3km..."
+              className="w-full h-24 bg-neutral-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 border border-neutral-700 resize-none text-sm"
             />
           </div>
 
-          {/* AI Integration Note */}
-          <div className="p-3 bg-[#1a1a1a] rounded-lg border border-gray-700">
-            <p className="text-sm text-gray-300">
-              🤖 <strong>AI Coach:</strong> Your feedback will help me adjust your future training 
-              schedule and provide personalized recommendations.
-            </p>
-          </div>
+          {/* Submit Button */}
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full bg-white text-black font-black uppercase italic tracking-wider py-4 rounded-full hover:bg-gray-200 transition disabled:opacity-50"
+          >
+            {isSubmitting ? "Saving..." : "Log Workout"}
+          </button>
 
-          {/* Action Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              onClick={() => handleSubmit(true)}
-              disabled={isSubmitting}
-              className="flex-1 bg-[#FF6600] hover:bg-[#e65c00] text-black font-semibold"
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              {isSubmitting ? 'Saving...' : 'Mark Complete'}
-            </Button>
-            
-            <Button
-              onClick={() => handleSubmit(false)}
-              disabled={isSubmitting}
-              variant="outline"
-              className="flex-1 border-gray-600 text-gray-300 hover:bg-gray-800"
-            >
-              <AlertCircle className="w-4 h-4 mr-2" />
-              {isSubmitting ? 'Saving...' : 'Mark Missed'}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+        </form>
+      </div>
     </div>
   );
 }
