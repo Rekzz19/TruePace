@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
-import Dashboard from "@/components/dashboard/Dashboard";
+import Dashboard from "@/components/dashboard/dashboard";
 import Chat from "@/components/chat/chat";
 
 export default function DashboardPage() {

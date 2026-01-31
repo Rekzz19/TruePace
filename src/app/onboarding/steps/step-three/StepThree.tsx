@@ -15,9 +15,10 @@ type stepThreeProps = {
     onNext:(values : stepThreeValues) => void
     onBack: () => void
     isLoading: boolean
+    isGeneratingPlans?: boolean
 } 
 
-export default function StepThree({data, onNext, onBack, isLoading} : stepThreeProps){
+export default function StepThree({data, onNext, onBack, isLoading, isGeneratingPlans} : stepThreeProps){
 
     const form = useForm({
         resolver:zodResolver(stepThreeSchema),
@@ -88,9 +89,9 @@ export default function StepThree({data, onNext, onBack, isLoading} : stepThreeP
                                 <Button
                                     type="submit"
                                     className="w-1/2 bg-[#FF6600] hover:bg-[#e65c00] text-black font-bold uppercase tracking-widest py-6 transition-transform active:scale-95"
-                                    disabled={isLoading}
+                                    disabled={isLoading || isGeneratingPlans}
                                 >
-                                    {isLoading ? 'Saving...' : 'Finish'}
+                                    {isGeneratingPlans ? 'Generating Plans...' : isLoading ? 'Saving...' : 'Finish'}
                                 </Button>
                             </CardFooter>
                         </CardContent>

@@ -17,6 +17,7 @@ export default function OnboardingPage(){
     const [ step, setStep] = useState(1);
     const [ data, setData] = useState<OnboardingData>({});
     const [ isLoading, setIsLoading] = useState(false);
+    const [ isGeneratingPlans, setIsGeneratingPlans ] = useState(false);
     const [ error, setError ] = useState<string | null>(null);
     const [ success, setSuccess ] = useState(false);
 
@@ -35,6 +36,7 @@ export default function OnboardingPage(){
 
     const handleStepThreeNext = async (values: stepThreeValues) => {
         setIsLoading(true);
+        setError(null);
         
         const completeData = { ...data, ...values };
         
@@ -62,7 +64,8 @@ export default function OnboardingPage(){
         };
 
         try {
-            const response = await fetch('/api/onboarding', {
+            // Step 1: Save user profile
+            const profileResponse = await fetch('/api/onboarding', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -70,22 +73,54 @@ export default function OnboardingPage(){
                 body: JSON.stringify(apiData),
             });
 
-            if (response.ok) {
-                const result = await response.json();
-                console.log('Profile saved:', result);
-                setSuccess(true);
-                setData((prev) => ({...prev, ...values}));
-                router.push('/dashboard');
-            } else {
-                const error = await response.json();
-                console.error('API Error:', error);
-                setError(error.error || 'An error occurred') 
+            if (!profileResponse.ok) {
+                const error = await profileResponse.json();
+                console.error('Profile API Error:', error);
+                setError(error.error || 'Failed to save profile');
+                return;
             }
+
+            const profileResult = await profileResponse.json();
+            console.log('Profile saved:', profileResult);
+
+            // Step 2: Generate AI training plans
+            setIsGeneratingPlans(true);
+            setError(null);
+            
+            const plansResponse = await fetch('/api/onboarding/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ userId: userId }),
+            });
+
+            if (!plansResponse.ok) {
+                const error = await plansResponse.json();
+                console.error('Plans API Error:', error);
+                setError(`Profile saved but failed to generate training plans: ${error.error || 'Unknown error'}`);
+                // Still proceed to dashboard even if plans failed
+                setTimeout(() => {
+                    setSuccess(true);
+                    router.push('/dashboard');
+                }, 2000);
+                return;
+            }
+
+            const plansResult = await plansResponse.json();
+            console.log('Training plans generated:', plansResult);
+
+            // Step 3: Success - redirect to dashboard
+            setSuccess(true);
+            setData((prev) => ({...prev, ...values}));
+            router.push('/dashboard');
+
         } catch (error) {
-            console.error('Network Error:', error);
-            setError('Network error, please try again.')
+            console.error('Onboarding Error:', error);
+            setError('Network error, please try again.');
         } finally {
             setIsLoading(false);
+            setIsGeneratingPlans(false);
         }
     };
 
@@ -104,7 +139,7 @@ export default function OnboardingPage(){
 
             {step === 2 && <StepTwo data={data} onNext={handleStepTwoNext} onBack={handleStepTwoBack}/>}
 
-            {step == 3 && <StepThree data={data} onNext={handleStepThreeNext} onBack={handleStepThreeBack} isLoading={isLoading}/>}
+            {step == 3 && <StepThree data={data} onNext={handleStepThreeNext} onBack={handleStepThreeBack} isLoading={isLoading} isGeneratingPlans={isGeneratingPlans}/>}
 
             {step == 3 && (
                 <p className="text-red-500 text-xs mt-1">
