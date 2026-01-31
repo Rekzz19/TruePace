@@ -59,7 +59,7 @@ export default function Chat({ user }: ChatProps) {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center mb-5 w-full max-w-4xl mx-auto flex-1 pt-5 mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl">
+    <div className="flex flex-col justify-center items-center mb-5 w-full max-w-4xl mx-auto h-90 pt-5 mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl">
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 w-full">
         {messages.map((msg, i) => (
           <div
