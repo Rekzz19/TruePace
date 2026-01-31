@@ -53,6 +53,7 @@ export default function Dashboard() {
   const [currentWeekIndex, setCurrentWeekIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [selectedRun, setSelectedRun] = useState<any>(null);
+  const [viewedRun, setViewedRun] = useState<any>(null); // For detailed view
 
   // Fetch training data
   useEffect(() => {
@@ -111,6 +112,67 @@ export default function Dashboard() {
     return "bg-gray-300";
   };
 
+  const isDateInPast = (dateString: string) => {
+    return new Date(dateString) < new Date(new Date().setHours(0, 0, 0, 0));
+  };
+
+  const isDateToday = (dateString: string) => {
+    return new Date(dateString).toDateString() === new Date().toDateString();
+  };
+
+  const handleDayClick = (day: any) => {
+    if (day.trainingPlan?.activityType === "RUN") {
+      // Show run details in left panel
+      setViewedRun(day);
+    }
+  };
+
+  const handleLogRun = (day: any) => {
+    if (
+      day.trainingPlan?.activityType === "RUN" &&
+      (isDateToday(day.date) || isDateInPast(day.date))
+    ) {
+      setSelectedRun(day);
+      setIsLogModalOpen(true);
+    }
+  };
+
+  const handleBackToNextRun = () => {
+    // Check if there's a run for today that hasn't been completed
+    const todayRun = weeks
+      .flatMap((week) => week.days)
+      .find(
+        (day) =>
+          isDateToday(day.date) &&
+          day.trainingPlan?.activityType === "RUN" &&
+          !day.runLog,
+      );
+
+    if (todayRun) {
+      // Show today's run if it exists and isn't completed
+      setViewedRun(todayRun);
+    } else {
+      // Otherwise go back to next run
+      setViewedRun(null);
+    }
+  };
+
+  const handleMarkAsMissed = (day: any) => {
+    // This would create a "missed" run log
+    // For now, let's just show a confirmation and clear the view
+    if (
+      confirm(
+        `Mark ${day.trainingPlan?.description} on ${new Date(
+          day.date,
+        ).toLocaleDateString()} as missed?`,
+      )
+    ) {
+      // TODO: Add API call to mark as missed
+      setViewedRun(null);
+      fetchTrainingData(); // Refresh data
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -121,6 +183,7 @@ export default function Dashboard() {
 
   const currentWeek = getCurrentWeek();
   const nextRun = getNextRun();
+  const displayRun = viewedRun || nextRun; // Show viewed run if selected, otherwise next run
 
   return (
     <div className="flex-1 min-h-0 flex justify-center items-center px-4 pb-2">
@@ -129,34 +192,82 @@ export default function Dashboard() {
           {/* ACTION DASHBOARD */}
           <CarouselItem className="h-full">
             <div className="h-full flex flex-col md:flex-row gap-4">
-              <Card className="flex-1 bg-neutral-900 border-neutral-800 text-white p-6 flex flex-col justify-center items-start">
-                <h2 className="text-gray-400 text-sm uppercase">Next Run</h2>
-                {nextRun ? (
+              <Card className="flex-1 bg-neutral-900 border-neutral-800 text-white p-6 flex flex-col justify-between items-start min-h-80">
+                <div className="flex items-center justify-between w-full mb-4">
+                  <h2 className="text-gray-400 text-sm uppercase">
+                    {viewedRun ? "Run Details" : "Next Run"}
+                  </h2>
+                  {viewedRun && (
+                    <button
+                      onClick={handleBackToNextRun}
+                      className="text-xs text-gray-400 hover:text-white transition"
+                    >
+                      ← Back to Next Run
+                    </button>
+                  )}
+                </div>
+                {displayRun ? (
                   <>
                     <h1 className="text-4xl font-bold mt-2">
-                      {nextRun.trainingPlan?.targetDistanceKm &&
-                      nextRun.trainingPlan?.targetDistanceKm > 0 &&
-                      nextRun.trainingPlan?.activityType === "RUN"
-                        ? `${nextRun.trainingPlan.targetDistanceKm}km `
+                      {displayRun.trainingPlan?.targetDistanceKm &&
+                      displayRun.trainingPlan?.targetDistanceKm > 0 &&
+                      displayRun.trainingPlan?.activityType === "RUN"
+                        ? `${displayRun.trainingPlan.targetDistanceKm}km `
                         : ""}
-                      {nextRun.trainingPlan?.description}
+                      {displayRun.trainingPlan?.description}
                     </h1>
                     <p className="mt-2 text-gray-300">
-                      {new Date(nextRun.date).toLocaleDateString("en-UK", {
+                      {new Date(displayRun.date).toLocaleDateString("en-UK", {
                         weekday: "long",
                         month: "short",
                         day: "numeric",
                       })}
                     </p>
-                    <button
-                      className="mt-6 bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200 transition"
-                      onClick={() => {
-                        setSelectedRun(nextRun);
-                        setIsLogModalOpen(true);
-                      }}
-                    >
-                      Start Run
-                    </button>
+                    {displayRun.trainingPlan?.aiReasoning && (
+                      <div className="mt-4 p-3 bg-neutral-800 rounded-lg">
+                        <p className="text-xs text-gray-400 mb-1">
+                          Coach's Notes:
+                        </p>
+                        <p className="text-sm text-gray-300">
+                          {displayRun.trainingPlan.aiReasoning}
+                        </p>
+                      </div>
+                    )}
+                    <div className="mt-6 flex gap-3 items-start min-h-11">
+                      {displayRun.trainingPlan?.activityType === "RUN" &&
+                        (isDateToday(displayRun.date) ||
+                          isDateInPast(displayRun.date)) && (
+                          <button
+                            className="bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200 transition"
+                            onClick={() => handleLogRun(displayRun)}
+                          >
+                            {displayRun.runLog ? "Update Run" : "Log Run"}
+                          </button>
+                        )}
+                      {displayRun.trainingPlan?.activityType === "RUN" &&
+                        isDateInPast(displayRun.date) &&
+                        !displayRun.runLog && (
+                          <button
+                            className="bg-red-600 text-white px-6 py-2 rounded-full font-bold hover:bg-red-700 transition"
+                            onClick={() => handleMarkAsMissed(displayRun)}
+                          >
+                            Mark as Missed
+                          </button>
+                        )}
+                      {displayRun.trainingPlan?.activityType === "RUN" &&
+                        !isDateInPast(displayRun.date) &&
+                        !isDateToday(displayRun.date) && (
+                          <div className="text-sm text-gray-400 self-center">
+                            Future run - wait for the scheduled date
+                          </div>
+                        )}
+                      {!displayRun.trainingPlan?.activityType ||
+                      displayRun.trainingPlan?.activityType !== "RUN" ? (
+                        <div className="text-sm text-gray-400 self-center">
+                          {displayRun.trainingPlan?.description || "Rest day"}
+                        </div>
+                      ) : null}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -203,12 +314,7 @@ export default function Dashboard() {
                           ? "bg-orange-100 ring-2 ring-orange-500"
                           : "bg-gray-100 hover:bg-gray-200"
                       }`}
-                      onClick={() => {
-                        if (day.trainingPlan?.activityType === "RUN") {
-                          setSelectedRun(day);
-                          setIsLogModalOpen(true);
-                        }
-                      }}
+                      onClick={() => handleDayClick(day)}
                     >
                       <div className="flex items-center gap-2 md:flex-col">
                         <div className="text-center">
