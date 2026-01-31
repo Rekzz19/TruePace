@@ -24,7 +24,10 @@ export async function GET(request: NextRequest) {
     // Calculate date ranges
     const now = new Date();
     const currentWeekStart = new Date(now);
-    currentWeekStart.setDate(now.getDate() - now.getDay()); // Start of current week (Sunday)
+    const dayOfWeek = currentWeekStart.getDay();
+    // Adjust to Monday (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    currentWeekStart.setDate(now.getDate() - mondayOffset); // Start of current week (Monday)
     currentWeekStart.setHours(0, 0, 0, 0);
 
     const futureWeekEnd = new Date(currentWeekStart);
