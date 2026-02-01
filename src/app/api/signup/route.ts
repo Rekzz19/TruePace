@@ -70,14 +70,41 @@ export async function POST(request: Request) {
 
     console.log('User created successfully:', authData.user.id);
 
-    // Return success response
+    // Now sign in the user to establish a client session
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      console.error('Sign-in error after signup:', signInError);
+      // User was created but sign-in failed - still return success
+      // User can manually sign in later
+      return NextResponse.json({
+        success: true,
+        message: 'Account created successfully. Please sign in.',
+        user: {
+          id: authData.user.id,
+          email: authData.user.email,
+          created_at: authData.user.created_at
+        },
+        needsSignIn: true
+      }, { status: 201 });
+    }
+
+    // Return success response with session
     return NextResponse.json({
       success: true,
-      message: 'Account created successfully',
+      message: 'Account created and signed in successfully',
       user: {
         id: authData.user.id,
         email: authData.user.email,
         created_at: authData.user.created_at
+      },
+      session: {
+        access_token: signInData.session?.access_token,
+        refresh_token: signInData.session?.refresh_token,
+        expires_at: signInData.session?.expires_at
       }
     }, { status: 201 });
 

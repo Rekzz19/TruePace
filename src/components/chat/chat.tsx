@@ -4,7 +4,7 @@ import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "model";
   content: string;
 }
 
@@ -14,10 +14,10 @@ interface ChatProps {
 
 export default function Chat({ user }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Good morning! Ready for your 5km today?" },
+    { role: "model", content: "Good morning! Ready for your 5km today?" },
     { role: "user", content: "Actually, my legs feel a bit heavy." },
     {
-      role: "assistant",
+      role: "model",
       content: "Noted. I can switch today to a Recovery Run if you prefer?",
     },
   ]);
@@ -47,7 +47,7 @@ export default function Chat({ user }: ChatProps) {
       const data = await response.json();
       
       if (response.ok) {
-        setMessages([...newMessages, { role: "assistant", content: data.response }]);
+        setMessages([...newMessages, { role: "model", content: data.response }]);
       } else {
         console.error("Chat error:", data.error);
       }
@@ -59,7 +59,7 @@ export default function Chat({ user }: ChatProps) {
   };
 
   return (
-    <div className="flex flex-col justify-center items-center mb-5 w-full max-w-4xl mx-auto flex-1 pt-5 mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl">
+    <div className="flex flex-col justify-center items-center mb-5 w-full max-w-4xl mx-auto h-90 pt-5 mt-2 bg-neutral-900 border border-neutral-800 rounded-2xl">
       <div className="flex-1 overflow-y-auto px-4 py-2 space-y-3 w-full">
         {messages.map((msg, i) => (
           <div

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { signupSchema, SignupValues } from "./schema";
 
 export default function SignUp() {
@@ -48,10 +49,26 @@ export default function SignUp() {
 
       if (response.ok) {
         console.log('Signup successful:', result);
+        
         // Store user ID for onboarding
         if (result.user?.id) {
           localStorage.setItem('userId', result.user.id);
         }
+        
+        // If session is provided, establish client-side auth
+        if (result.session?.access_token) {
+          const { data, error } = await supabase.auth.setSession({
+            access_token: result.session.access_token,
+            refresh_token: result.session.refresh_token,
+          });
+          
+          if (error) {
+            console.error('Session setup error:', error);
+          } else {
+            console.log('Session established successfully');
+          }
+        }
+        
         // Redirect to onboarding after successful signup
         router.push('/onboarding');
       } else {
