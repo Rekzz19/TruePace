@@ -11,6 +11,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/lib/supabase";
 import RunCompletionModal from "./RunCompletionModal";
+import MissedRunDialog from "./MissedRunDialog";
 
 interface DayData {
   date: string;
@@ -54,6 +55,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedRun, setSelectedRun] = useState<any>(null);
   const [viewedRun, setViewedRun] = useState<any>(null); // For detailed view
+  const [missedRunDialog, setMissedRunDialog] = useState<{
+    isOpen: boolean;
+    runData: any;
+  }>({ isOpen: false, runData: null });
 
   // Fetch training data
   useEffect(() => {
@@ -106,6 +111,7 @@ export default function Dashboard() {
 
   const getActivityColor = (activityType: string, status: string) => {
     if (status === "COMPLETED") return "bg-green-500";
+    if (status === "SKIPPED") return "bg-rose-900";
     if (activityType === "RUN") return "bg-orange-500";
     if (activityType === "REST") return "bg-gray-400";
     if (activityType === "CROSS_TRAIN") return "bg-blue-500";
@@ -158,18 +164,82 @@ export default function Dashboard() {
   };
 
   const handleMarkAsMissed = (day: any) => {
-    // This would create a "missed" run log
-    // For now, let's just show a confirmation and clear the view
-    if (
-      confirm(
-        `Mark ${day.trainingPlan?.description} on ${new Date(
-          day.date,
-        ).toLocaleDateString()} as missed?`,
-      )
-    ) {
-      // TODO: Add API call to mark as missed
-      setViewedRun(null);
-      fetchTrainingData(); // Refresh data
+    setMissedRunDialog({
+      isOpen: true,
+      runData: day,
+    });
+  };
+
+  const confirmMissedRun = () => {
+    if (missedRunDialog.runData) {
+      markRunAsMissed(missedRunDialog.runData);
+      setMissedRunDialog({ isOpen: false, runData: null });
+    }
+  };
+
+  const markRunAsMissed = async (day: any) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) return;
+
+      const response = await fetch("/api/runs/missed", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          runId: day.trainingPlan?.id,
+          reason: "User marked as missed from dashboard",
+        }),
+      });
+
+      if (response.ok) {
+        setViewedRun(null);
+        fetchTrainingData(); // Refresh data
+      } else {
+        console.error("Failed to mark run as missed");
+      }
+    } catch (error) {
+      console.error("Error marking run as missed:", error);
+    }
+  };
+
+  const logRun = async (runData: any) => {
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session) return;
+
+      const response = await fetch("/api/runs/log", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          runId: runData.runId,
+          actualDistance: runData.actualDistance,
+          actualDuration: runData.actualDuration,
+          effortRating: runData.effortRating,
+          feedbackNotes: runData.feedbackNotes,
+          painReported: runData.painReported || false,
+        }),
+      });
+
+      if (response.ok) {
+        fetchTrainingData(); // Refresh data
+        setIsLogModalOpen(false);
+      } else {
+        console.error("Failed to log run");
+      }
+    } catch (error) {
+      console.error("Error logging run:", error);
     }
   };
 
@@ -235,18 +305,24 @@ export default function Dashboard() {
                     )}
                     <div className="mt-6 flex gap-3 items-start min-h-11">
                       {displayRun.trainingPlan?.activityType === "RUN" &&
+                      displayRun.status === "SKIPPED" ? (
+                        <div className="text-sm text-red-400 self-center">
+                          Run marked as missed
+                        </div>
+                      ) : displayRun.trainingPlan?.activityType === "RUN" &&
                         (isDateToday(displayRun.date) ||
-                          isDateInPast(displayRun.date)) && (
-                          <button
-                            className="bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200 transition"
-                            onClick={() => handleLogRun(displayRun)}
-                          >
-                            {displayRun.runLog ? "Update Run" : "Log Run"}
-                          </button>
-                        )}
+                          isDateInPast(displayRun.date)) ? (
+                        <button
+                          className="bg-white text-black px-6 py-2 rounded-full font-bold hover:bg-gray-200 transition"
+                          onClick={() => handleLogRun(displayRun)}
+                        >
+                          {displayRun.runLog ? "Update Run" : "Log Run"}
+                        </button>
+                      ) : null}
                       {displayRun.trainingPlan?.activityType === "RUN" &&
                         isDateInPast(displayRun.date) &&
-                        !displayRun.runLog && (
+                        !displayRun.runLog &&
+                        displayRun.status !== "SKIPPED" && (
                           <button
                             className="bg-red-600 text-white px-6 py-2 rounded-full font-bold hover:bg-red-700 transition"
                             onClick={() => handleMarkAsMissed(displayRun)}
@@ -404,11 +480,19 @@ export default function Dashboard() {
             targetDistance: selectedRun.trainingPlan?.targetDistanceKm,
             targetDuration: selectedRun.trainingPlan?.targetDurationMin,
           }}
-          onSubmit={() => {
-            // Refresh data after logging a run
-            fetchTrainingData();
-            setIsLogModalOpen(false);
-          }}
+          onSubmit={(runData) => logRun(runData)}
+        />
+      )}
+
+      {missedRunDialog.isOpen && (
+        <MissedRunDialog
+          isOpen={missedRunDialog.isOpen}
+          onClose={() => setMissedRunDialog({ isOpen: false, runData: null })}
+          onConfirm={confirmMissedRun}
+          runDescription={
+            missedRunDialog.runData?.trainingPlan?.description || "Run"
+          }
+          runDate={new Date(missedRunDialog.runData?.date).toLocaleDateString()}
         />
       )}
     </div>
