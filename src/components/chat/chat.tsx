@@ -4,7 +4,7 @@ import { useState } from "react";
 import { User } from "@supabase/supabase-js";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "model";
   content: string;
 }
 
@@ -14,10 +14,10 @@ interface ChatProps {
 
 export default function Chat({ user }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", content: "Good morning! Ready for your 5km today?" },
+    { role: "model", content: "Good morning! Ready for your 5km today?" },
     { role: "user", content: "Actually, my legs feel a bit heavy." },
     {
-      role: "assistant",
+      role: "model",
       content: "Noted. I can switch today to a Recovery Run if you prefer?",
     },
   ]);
@@ -47,7 +47,7 @@ export default function Chat({ user }: ChatProps) {
       const data = await response.json();
       
       if (response.ok) {
-        setMessages([...newMessages, { role: "assistant", content: data.response }]);
+        setMessages([...newMessages, { role: "model", content: data.response }]);
       } else {
         console.error("Chat error:", data.error);
       }
