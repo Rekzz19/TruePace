@@ -26,7 +26,7 @@ export default function Dashboard() {
           {/* ACTION DASHBOARD */}
           <CarouselItem className="h-full">
             <div className="h-full flex flex-col md:flex-row gap-4">
-              <Card className="flex-1 bg-neutral-900 border-neutral-800 text-white p-6 flex flex-col justify-center items-start">
+              <Card className="flex-[3] bg-neutral-900 border-neutral-800 text-white p-6 flex flex-col justify-center items-start">
                 <h2 className="text-gray-400 text-sm uppercase">Next Run</h2>
                 <h1 className="text-4xl font-bold mt-2">5km Tempo</h1>
                 <p className="mt-2 text-gray-300">Thursday • 18:00</p>
@@ -38,7 +38,7 @@ export default function Dashboard() {
                 </button>
               </Card>
 
-              <Card className="h-1/3 md:h-full md:w-1/3 bg-white text-black p-4 flex flex-col">
+              <Card className="flex-[2] bg-white text-black p-4 flex flex-col">
                 <h3 className="font-bold mb-2 shrink-0">This Week</h3>
                 <div className="flex-1 flex md:flex-col gap-2 overflow-x-auto md:overflow-y-auto">
                   {["M", "T", "W", "T", "F", "S", "S"].map((day, i) => (
