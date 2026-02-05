@@ -4,22 +4,24 @@ import { useState, useEffect, useRef } from "react";
 import { User } from "@supabase/supabase-js";
 
 interface Message {
+  id: string;
   role: "user" | "model";
   content: string;
+  timestamp: Date;
 }
 
-interface ChatProps {
+interface AgentChatProps {
   user: User;
   onCollapseChange?: (collapsed: boolean) => void;
 }
 
-export default function Chat({ user, onCollapseChange }: ChatProps) {
+export default function AgentChat({ user, onCollapseChange }: AgentChatProps) {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "model", content: "Good morning! Ready for your 5km today?" },
-    { role: "user", content: "Actually, my legs feel a bit heavy." },
     {
+      id: "1",
       role: "model",
-      content: "Noted. I can switch today to a Recovery Run if you prefer?",
+      content: "Hey! I'm your AI running coach. How can I help you crush your goals today?",
+      timestamp: new Date(),
     },
   ]);
   const [inputValue, setInputValue] = useState("");
@@ -102,32 +104,76 @@ export default function Chat({ user, onCollapseChange }: ChatProps) {
   const handleSendMessage = async () => {
     if (!inputValue.trim() || !user || isLoading) return;
 
-    const userMessage: Message = { role: "user", content: inputValue };
+    const userMessage: Message = { 
+      id: Date.now().toString(),
+      role: "user", 
+      content: inputValue,
+      timestamp: new Date()
+    };
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     setInputValue("");
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/chat", {
+      const response = await fetch("/api/chat/agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: user.id,
-          message: inputValue,
-          conversationHistory: messages,
+          messages: newMessages,
         }),
       });
 
       const data = await response.json();
-      
+
       if (response.ok) {
-        setMessages([...newMessages, { role: "model", content: data.response }]);
+        const assistantMessage: Message = {
+          id: Date.now().toString(),
+          role: "model",
+          content: data.response,
+          timestamp: new Date()
+        };
+
+        // Add tool execution info if available
+        let finalMessage = assistantMessage;
+        if (data.toolCalls && data.toolCalls.length > 0) {
+          const toolInfo = data.toolCalls
+            .map((call: any) => `🔧 Used tool: ${call.toolName}`)
+            .join("\n");
+          finalMessage = {
+            id: Date.now().toString(),
+            role: "model" as const,
+            content: `${assistantMessage.content}\n\n${toolInfo}`,
+            timestamp: new Date()
+          };
+        }
+
+        setMessages([...newMessages, finalMessage]);
       } else {
-        console.error("Chat error:", data.error);
+        console.error("Agent chat error:", data.error);
+        setMessages([
+          ...newMessages,
+          {
+            id: Date.now().toString(),
+            role: "model",
+            content: "Sorry, I encountered an error. Please try again.",
+            timestamp: new Date()
+          },
+        ]);
       }
     } catch (error) {
       console.error("Failed to send message:", error);
+      setMessages([
+        ...newMessages,
+        {
+          id: Date.now().toString(),
+          role: "model",
+          content:
+            "Connection error. Please check your internet and try again.",
+          timestamp: new Date()
+        },
+      ]);
     } finally {
       setIsLoading(false);
       // Refocus input after AI response
@@ -141,7 +187,7 @@ export default function Chat({ user, onCollapseChange }: ChatProps) {
     <div 
       ref={chatRef}
       className={`flex flex-col justify-center items-center mb-5 w-full max-w-4xl mx-auto bg-neutral-900 border border-neutral-800 rounded-2xl transition-all duration-300 ${
-        isCollapsed ? 'h-[80px]' : 'h-[400px]'
+        isCollapsed ? 'h-[80px]' : 'h-[350px]'
       }`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -174,22 +220,41 @@ export default function Chat({ user, onCollapseChange }: ChatProps) {
               <div
                 className={`max-w-[85%] rounded-2xl px-4 py-2 text-sm ${
                   msg.role === "user"
-                    ? "bg-orange-700 text-white rounded-br-none"
-                    : "bg-neutral-800 text-gray-200 rounded-bl-none border "
+                    ? "bg-blue-600 text-white rounded-br-none"
+                    : "bg-neutral-800 text-gray-200 rounded-bl-none border border-neutral-700"
                 }`}
               >
-                {msg.content}
+                {msg.content.split("\n").map((line, j) => (
+                  <div key={j}>{line}</div>
+                ))}
               </div>
             </div>
           ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-neutral-800 text-gray-200 rounded-2xl rounded-bl-none border border-neutral-700 px-4 py-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                  <div
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
       )}
-      <div className="h-[80px] shrink-0 border-t border-gray-200 p-4 flex items-center gap-2 w-full">
+      <div className="h-[80px] shrink-0 border-t border-neutral-800 p-4 flex items-center gap-2 w-full">
         <input
           ref={inputRef}
           type="text"
-          placeholder="Talk to Truth..."
+          placeholder="Ask me to reschedule workouts, adjust training, or handle injuries..."
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}

@@ -11,8 +11,11 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split(" ")[1];
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
+
     if (error || !user) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
@@ -24,7 +27,10 @@ export async function GET(request: NextRequest) {
     // Calculate date ranges
     const now = new Date();
     const currentWeekStart = new Date(now);
-    currentWeekStart.setDate(now.getDate() - now.getDay()); // Start of current week (Sunday)
+    const dayOfWeek = currentWeekStart.getDay();
+    // Adjust to Monday (0 = Sunday, 1 = Monday, ..., 6 = Saturday)
+    const mondayOffset = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    currentWeekStart.setDate(now.getDate() - mondayOffset); // Start of current week (Monday)
     currentWeekStart.setHours(0, 0, 0, 0);
 
     const futureWeekEnd = new Date(currentWeekStart);
@@ -44,19 +50,19 @@ export async function GET(request: NextRequest) {
       },
       include: {
         runLogs: {
-          orderBy: { loggedAt: 'desc' }
-        }
+          orderBy: { loggedAt: "desc" },
+        },
       },
-      orderBy: { scheduledDate: 'asc' }
+      orderBy: { scheduledDate: "asc" },
     });
 
     // Group data by weeks
     const weeksData = [];
-    
+
     for (let weekOffset = -weeksBack; weekOffset <= weeksAhead; weekOffset++) {
       const weekStart = new Date(currentWeekStart);
       weekStart.setDate(currentWeekStart.getDate() + weekOffset * 7);
-      
+
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
       weekEnd.setHours(23, 59, 59, 999);
@@ -72,36 +78,40 @@ export async function GET(request: NextRequest) {
         nextDay.setDate(currentDay.getDate() + 1);
 
         // Find training plan for this day
-        const plan = trainingPlans.find(p => {
+        const plan = trainingPlans.find((p) => {
           const planDate = new Date(p.scheduledDate);
           return planDate >= currentDay && planDate < nextDay;
         });
 
         weekDays.push({
           date: currentDay.toISOString(),
-          dayName: currentDay.toLocaleDateString('en-US', { weekday: 'short' }),
+          dayName: currentDay.toLocaleDateString("en-US", { weekday: "short" }),
           dayNumber: currentDay.getDate(),
           isToday: currentDay.toDateString() === now.toDateString(),
-          trainingPlan: plan ? {
-            id: plan.id,
-            activityType: plan.activityType,
-            targetDistanceKm: plan.targetDistanceKm,
-            targetDurationMin: plan.targetDurationMin,
-            targetRpe: plan.targetRpe,
-            description: plan.description,
-            status: plan.status,
-            aiReasoning: plan.aiReasoning,
-          } : null,
-          runLog: plan?.runLogs[0] ? {
-            id: plan.runLogs[0].id,
-            actualDistanceKm: plan.runLogs[0].actualDistanceKm,
-            actualDurationMin: plan.runLogs[0].actualDurationMin,
-            actualRpe: plan.runLogs[0].actualRpe,
-            painReported: plan.runLogs[0].painReported,
-            notes: plan.runLogs[0].notes,
-            loggedAt: plan.runLogs[0].loggedAt,
-          } : null,
-          status: plan?.status || 'SCHEDULED',
+          trainingPlan: plan
+            ? {
+                id: plan.id,
+                activityType: plan.activityType,
+                targetDistanceKm: plan.targetDistanceKm,
+                targetDurationMin: plan.targetDurationMin,
+                targetRpe: plan.targetRpe,
+                description: plan.description,
+                status: plan.status,
+                aiReasoning: plan.aiReasoning,
+              }
+            : null,
+          runLog: plan?.runLogs[0]
+            ? {
+                id: plan.runLogs[0].id,
+                actualDistanceKm: plan.runLogs[0].actualDistanceKm,
+                actualDurationMin: plan.runLogs[0].actualDurationMin,
+                actualRpe: plan.runLogs[0].actualRpe,
+                painReported: plan.runLogs[0].painReported,
+                notes: plan.runLogs[0].notes,
+                loggedAt: plan.runLogs[0].loggedAt,
+              }
+            : null,
+          status: plan?.status || "SCHEDULED",
         });
       }
 
@@ -109,16 +119,27 @@ export async function GET(request: NextRequest) {
         weekOffset,
         weekStart: weekStart.toISOString(),
         weekEnd: weekEnd.toISOString(),
-        weekLabel: weekOffset === 0 ? "Current Week" : 
-                   weekOffset > 0 ? `Week +${weekOffset}` : 
-                   `${Math.abs(weekOffset)} Week${Math.abs(weekOffset) > 1 ? 's' : ''} Ago`,
+        weekLabel:
+          weekOffset === 0
+            ? "Current Week"
+            : weekOffset > 0
+              ? `Week +${weekOffset}`
+              : `${Math.abs(weekOffset)} Week${Math.abs(weekOffset) > 1 ? "s" : ""} Ago`,
         days: weekDays,
         summary: {
-          totalPlannedRuns: weekDays.filter(d => d.trainingPlan?.activityType === 'RUN').length,
-          completedRuns: weekDays.filter(d => d.runLog).length,
-          totalDistance: weekDays.reduce((sum, d) => sum + (d.runLog?.actualDistanceKm || 0), 0),
-          totalDuration: weekDays.reduce((sum, d) => sum + (d.runLog?.actualDurationMin || 0), 0),
-        }
+          totalPlannedRuns: weekDays.filter(
+            (d) => d.trainingPlan?.activityType === "RUN",
+          ).length,
+          completedRuns: weekDays.filter((d) => d.runLog).length,
+          totalDistance: weekDays.reduce(
+            (sum, d) => sum + (d.runLog?.actualDistanceKm || 0),
+            0,
+          ),
+          totalDuration: weekDays.reduce(
+            (sum, d) => sum + (d.runLog?.actualDurationMin || 0),
+            0,
+          ),
+        },
       });
     }
 
@@ -126,12 +147,11 @@ export async function GET(request: NextRequest) {
       weeks: weeksData,
       currentWeekIndex: weeksBack, // Index of current week in the array
     });
-
   } catch (error) {
     console.error("Error fetching runs:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

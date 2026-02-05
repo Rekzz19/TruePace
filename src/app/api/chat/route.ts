@@ -42,7 +42,7 @@ export async function POST(req: Request) {
         `;
 
     // Start chat with system prompt
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
     const chat = model.startChat({
       history: [
         { role: "user", parts: [{ text: systemPrompt }] },

@@ -7,11 +7,14 @@ import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import Dashboard from "@/components/dashboard/dashboard";
 import Chat from "@/components/chat/chat";
+import AgentChat from "@/components/chat/AgentChat";
 
 export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [useAgentChat, setUseAgentChat] = useState(false);
+  const [isChatCollapsed, setIsChatCollapsed] = useState(true);
 
   // Check authentication on mount
   useEffect(() => {
@@ -79,11 +82,38 @@ export default function DashboardPage() {
         </Button>
       </div>
 
-      <div className="flex-1 min-h-0 flex flex-col">
-        <Dashboard />
-        
-        {user && <Chat user={user} />}
+      <Dashboard isChatExpanded={!isChatCollapsed} />
+
+      <div className="flex items-center gap-2 px-6 py-2">
+        <button
+          onClick={() => setUseAgentChat(false)}
+          className={`px-3 py-1 rounded-full text-sm transition ${
+            !useAgentChat
+              ? "bg-orange-600 text-white"
+              : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+          }`}
+        >
+          Chat
+        </button>
+        <button
+          onClick={() => setUseAgentChat(true)}
+          className={`px-3 py-1 rounded-full text-sm transition flex items-center gap-2 ${
+            useAgentChat
+              ? "bg-blue-600 text-white"
+              : "bg-neutral-800 text-gray-400 hover:bg-neutral-700"
+          }`}
+        >
+          AI Agent
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+        </button>
       </div>
+
+      {user &&
+        (useAgentChat ? (
+          <AgentChat user={user} onCollapseChange={setIsChatCollapsed} />
+        ) : (
+          <Chat user={user} onCollapseChange={setIsChatCollapsed} />
+        ))}
     </main>
   );
 }
