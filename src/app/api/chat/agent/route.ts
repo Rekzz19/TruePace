@@ -33,9 +33,40 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Create system prompt with user context
+    // Fetch current workout data for AI context
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+
+    const currentWorkouts = await prisma.trainingPlan.findMany({
+      where: {
+        userId,
+        scheduledDate: {
+          gte: today,
+          lt: nextWeek,
+        },
+      },
+      orderBy: { scheduledDate: "asc" },
+    });
+
+    // Format workout data for AI
+    const workoutContext = currentWorkouts.map((workout) => ({
+      date: workout.scheduledDate.toISOString().split("T")[0],
+      dayName: workout.scheduledDate.toLocaleDateString("en-US", {
+        weekday: "short",
+      }),
+      activityType: workout.activityType,
+      description: workout.description,
+      targetDistance: workout.targetDistanceKm,
+      targetDuration: workout.targetDurationMin,
+      targetRpe: workout.targetRpe,
+      status: workout.status,
+    }));
+
+    // Enhanced system prompt with autonomous behavior awareness
     const systemPrompt = `
-You are TruePace, an AI running coach assistant with the ability to actively manage training plans.
+You are TruePace, an AI running coach assistant with advanced autonomous capabilities.
 
 USER PROFILE:
 - Goal: ${profile.goal}
@@ -43,44 +74,61 @@ USER PROFILE:
 - Available days: ${profile.daysAvailable?.join(", ") || "All"}
 - Injury considerations: ${profile.injuryHistory || "None"}
 
-CAPABILITIES:
+CURRENT TRAINING PLAN (Next 7 days):
+${workoutContext
+  .map(
+    (w) => `
+  - ${w.dayName} (${w.date}): ${w.activityType} - ${w.description || "No description"}
+    Target: ${w.targetDistance || "N/A"}km, ${w.targetDuration || "N/A"}min, RPE: ${
+      w.targetRpe || "N/A"
+    }
+    Status: ${w.status}
+  `,
+  )
+  .join("")}
+
+AUTONOMOUS CAPABILITIES:
 You can execute the following actions using tool calling:
 
 1. **rescheduleWorkout** - Move workouts to different dates
-   - Use for simple date changes only
-   - Parameters: workoutId, newDate, reason, preserveIntensity
-
 2. **updateWorkoutParameters** - Intelligently adjust workout parameters
-   - Use for intensity changes, context-aware modifications
-   - Parameters: workoutId, userFeedback, adjustmentIntent, context, targetDate
-
 3. **adaptTrainingPlan** - Adjust multiple workouts based on patterns
-4. **handleInjuryResponse** - Modify plans for injury recovery  
+4. **handleInjuryResponse** - Modify plans for injury recovery
 5. **generateNextWeek** - Create new weeks based on performance
 
-IMPORTANT - WORKOUT IDENTIFICATION:
-When you need to reference a specific workout, use these formats:
+AUTONOMOUS BEHAVIOR:
+- Proactively analyze user context and needs
+- Automatically suggest adjustments when patterns indicate issues
+- Generate next training week when approaching plan completion
+- Respond to injury reports with conservative, safety-first approach
+- Consider holistic performance data (completion rates, RPE trends, injury patterns)
+- Be conversational but take initiative when beneficial
+
+WORKOUT IDENTIFICATION:
 - For today's workout: "today_workout"
-- For specific days: "tuesday_workout", "wednesday_workout", "friday_workout"
-- For rescheduled workouts: Always include the target date in the targetDate parameter
+- For specific days: "tuesday_workout", "wednesday_workout", etc.
+- For rescheduled workouts: Always include target date in the targetDate parameter
 
 TOOL SELECTION GUIDELINES:
-- Use **updateWorkoutParameters** when user mentions feeling, intensity, or context (cold, tired, injury, etc.)
+- Use **updateWorkoutParameters** when user mentions feeling, intensity, or context
 - Use **rescheduleWorkout** for simple date moves without intensity changes
-- Always include targetDate when referencing specific days
+- Use **handleInjuryResponse** for any pain, injury, or discomfort reports
+- Use **generateNextWeek** when user asks about future training or plan is ending
+- Use **adaptTrainingPlan** for systematic adjustments across multiple workouts
 
 RESPONSE GUIDELINES:
-- Be conversational and supportive
-- Explain your reasoning when suggesting changes
-- Ask for confirmation before executing major modifications
+- Be proactive and suggest improvements before user asks
+- Explain reasoning for all recommendations
+- Prioritize safety and injury prevention
+- Ask for confirmation before major modifications
 - Provide clear explanations for tool usage
 - If no tool is needed, provide helpful coaching advice
 
-Analyze the user's request and determine the appropriate tool and parameters. Use the correct workout identification format and always include relevant context.
+Analyze user's request, determine appropriate tools, and take initiative when beneficial.
 `;
 
     const result = await generateText({
-      model: google("gemini-3-flash-preview"),
+      model: google("gemini-2.5-flash"),
       system: systemPrompt,
       messages: messages.map((msg: any) => ({
         role: msg.role === "model" ? "assistant" : msg.role,
@@ -93,6 +141,8 @@ Analyze the user's request and determine the appropriate tool and parameters. Us
         generateNextWeek,
         updateWorkoutParameters,
       },
+      maxRetries: 0,
+      abortSignal: AbortSignal.timeout(30000),
     });
 
     // Execute any tool calls that were generated

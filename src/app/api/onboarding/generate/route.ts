@@ -1,6 +1,6 @@
-import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
-import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 // Use standard Flash model
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -11,7 +11,7 @@ export async function POST(req: Request) {
 
     // 1. Fetch User Logic
     const profile = await prisma.profile.findUnique({
-      where: { id: userId }
+      where: { id: userId },
     });
 
     if (!profile) {
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
       RUNNER PROFILE:
       - Goal: ${profile.goal}
       - Level: ${profile.experienceLevel}
-      - Available Days: ${profile.daysAvailable?.join(', ') || "All"}
+      - Available Days: ${profile.daysAvailable?.join(", ") || "All"}
       - Injury History: ${profile.injuryHistory || "None"}
 
       OUTPUT REQUIREMENTS:
@@ -42,22 +42,22 @@ export async function POST(req: Request) {
     `;
 
     // 3. Call Gemini with JSON Enforcement
-    const model = genAI.getGenerativeModel({ 
-      model: "gemini-3-flash-preview",
-      generationConfig: { 
-        responseMimeType: "application/json" 
-      }
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        responseMimeType: "application/json",
+      },
     });
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
-    
+
     // 4. Parse the AI Response
     const planData = JSON.parse(responseText);
 
     // 5. Calculate real dates and Save to Database
     const today = new Date();
-    
+
     // Create an array of Prisma operations
     const dbOperations = planData.map((day: any) => {
       // Calculate the specific calendar date
@@ -73,8 +73,8 @@ export async function POST(req: Request) {
           targetDurationMin: day.duration,
           description: day.description,
           aiReasoning: day.reasoning,
-          status: "SCHEDULED"
-        }
+          status: "SCHEDULED",
+        },
       });
     });
 
@@ -82,9 +82,11 @@ export async function POST(req: Request) {
     await prisma.$transaction(dbOperations);
 
     return NextResponse.json({ success: true, count: dbOperations.length });
-
   } catch (error) {
     console.error("Generation Error:", error);
-    return NextResponse.json({ error: "Failed to generate plan" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to generate plan" },
+      { status: 500 },
+    );
   }
 }

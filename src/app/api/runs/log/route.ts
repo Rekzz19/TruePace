@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { supabase } from "@/lib/supabase";
+import {
+  triggerNextWeekGeneration,
+  isLastWeekOfPlan,
+} from "@/lib/ai-automation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,35 +15,51 @@ export async function POST(req: NextRequest) {
     }
 
     const token = authHeader.split(" ")[1];
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser(token);
+
     if (error || !user) {
       return NextResponse.json({ error: "Invalid token" }, { status: 401 });
     }
 
     const body = await req.json();
-    const { runId, actualDistance, actualDuration, effortRating, feedbackNotes, painReported = false } = body;
+    const {
+      runId,
+      actualDistance,
+      actualDuration,
+      effortRating,
+      feedbackNotes,
+      painReported = false,
+    } = body;
 
     if (!runId) {
-      return NextResponse.json({ error: "Run ID is required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Run ID is required" },
+        { status: 400 },
+      );
     }
 
     // Verify the training plan belongs to the user
     const trainingPlan = await prisma.trainingPlan.findFirst({
-      where: { 
+      where: {
         id: runId,
-        userId: user.id 
-      }
+        userId: user.id,
+      },
     });
 
     if (!trainingPlan) {
-      return NextResponse.json({ error: "Training plan not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Training plan not found" },
+        { status: 404 },
+      );
     }
 
     // Create or update run log
     let runLog;
     const existingLog = await prisma.runLog.findFirst({
-      where: { planId: runId }
+      where: { planId: runId },
     });
 
     if (existingLog) {
@@ -52,8 +72,8 @@ export async function POST(req: NextRequest) {
           actualRpe: effortRating,
           notes: feedbackNotes,
           painReported: painReported,
-          loggedAt: new Date()
-        }
+          loggedAt: new Date(),
+        },
       });
     } else {
       // Create new log
@@ -66,21 +86,41 @@ export async function POST(req: NextRequest) {
           actualRpe: effortRating,
           notes: feedbackNotes,
           painReported: painReported,
-          loggedAt: new Date()
-        }
+          loggedAt: new Date(),
+        },
       });
     }
 
     // Update training plan status to completed
     await prisma.trainingPlan.update({
       where: { id: runId },
-      data: { 
-        status: "COMPLETED"
-      }
+      data: {
+        status: "COMPLETED",
+      },
     });
 
-    return NextResponse.json({ 
-      success: true, 
+    // Check if this was the last workout and trigger next week generation
+    if (await isLastWeekOfPlan(user.id)) {
+      console.log("Last week detected, triggering next week generation");
+      await triggerNextWeekGeneration(user.id);
+    }
+
+    // Auto-detect injury response if pain was reported
+    if (painReported) {
+      console.log("Pain reported, triggering injury response");
+      const { triggerInjuryResponse } = await import("@/lib/ai-automation");
+      await triggerInjuryResponse(user.id, {
+        painReported,
+        feedbackNotes,
+        actualDistance,
+        actualDuration,
+        effortRating,
+        runId,
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
       runLog: {
         id: runLog.id,
         actualDistanceKm: runLog.actualDistanceKm,
@@ -88,15 +128,11 @@ export async function POST(req: NextRequest) {
         actualRpe: runLog.actualRpe,
         painReported: runLog.painReported,
         notes: runLog.notes,
-        loggedAt: runLog.loggedAt
-      }
+        loggedAt: runLog.loggedAt,
+      },
     });
-
   } catch (error) {
     console.error("Error logging run:", error);
-    return NextResponse.json(
-      { error: "Failed to log run" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to log run" }, { status: 500 });
   }
 }

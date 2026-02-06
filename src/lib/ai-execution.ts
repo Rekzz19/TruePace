@@ -32,6 +32,7 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
 
   // If AI provided a placeholder ID, find the actual workout
   let actualWorkoutId = workoutId;
+  let targetWorkout = null;
 
   if (
     workoutId &&
@@ -60,6 +61,7 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
 
     if (todayWorkout) {
       actualWorkoutId = todayWorkout.id;
+      targetWorkout = todayWorkout;
       console.log(
         `Found actual workout ID: ${actualWorkoutId} for today's run`,
       );
@@ -68,6 +70,110 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
         "No run found for today to reschedule. Please specify the exact workout or check your training plan.",
       );
     }
+  } else if (workoutId && workoutId.includes("_workout")) {
+    // Handle day-specific workouts (tuesday_workout, wednesday_workout, etc.)
+    const dayOfWeek = workoutId.split("_")[0];
+    const targetDate = getNextOccurrenceOfDay(dayOfWeek);
+
+    targetWorkout = await prisma.trainingPlan.findFirst({
+      where: {
+        userId,
+        scheduledDate: {
+          gte: targetDate,
+          lt: new Date(targetDate.getTime() + 24 * 60 * 60 * 1000),
+        },
+        activityType: ActivityType.RUN,
+      },
+      orderBy: { scheduledDate: "asc" },
+    });
+
+    if (targetWorkout) {
+      actualWorkoutId = targetWorkout.id;
+      console.log(
+        `Found actual workout ID: ${actualWorkoutId} for ${dayOfWeek}'s run`,
+      );
+    } else {
+      throw new Error(
+        `No run found for ${dayOfWeek} to reschedule. Please check your training plan.`,
+      );
+    }
+  } else if (workoutId) {
+    // Direct ID provided - try exact match first
+    targetWorkout = await prisma.trainingPlan.findFirst({
+      where: {
+        id: workoutId,
+        userId,
+      },
+    });
+
+    if (targetWorkout) {
+      actualWorkoutId = targetWorkout.id;
+    } else {
+      // If exact ID fails, try to find by description pattern matching
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(today.getDate() + 1);
+      tomorrow.setHours(23, 59, 59, 999);
+
+      // Try to find workout that matches the ID pattern
+      const allWorkouts = await prisma.trainingPlan.findMany({
+        where: {
+          userId,
+          scheduledDate: {
+            gte: today,
+            lt: tomorrow,
+          },
+        },
+      });
+
+      // Look for partial matches or similar descriptions
+      const matchingWorkout = allWorkouts.find((w) => {
+        // Check if the workout ID contains identifying information
+        if (
+          workoutId.includes(w.id) ||
+          w.description?.toLowerCase().includes(
+            workoutId
+              .toLowerCase()
+              .replace(/[^a-z0-9_]/g, "")
+              .substring(0, 8),
+          ) ||
+          // Check date proximity for AI-generated IDs
+          (workoutId.includes("2026-") &&
+            w.scheduledDate
+              .toISOString()
+              .split("T")[0]
+              .includes(
+                workoutId.split("_")[0]?.split("-")[1]?.split(":")[0] || "",
+              ))
+        ) {
+          return w;
+        }
+        return null;
+      });
+
+      if (matchingWorkout) {
+        actualWorkoutId = matchingWorkout.id;
+        console.log(
+          `Found matching workout: ${matchingWorkout.description} (ID: ${matchingWorkout.id})`,
+        );
+      } else {
+        throw new Error(
+          `Workout with ID ${workoutId} not found. Please check your training plan. Available workouts:\n` +
+            allWorkouts
+              .slice(0, 5)
+              .map(
+                (w) =>
+                  `  - ${w.description} (${w.scheduledDate.toISOString().split("T")[0]})`,
+              )
+              .join("\n"),
+        );
+      }
+    }
+  } else {
+    throw new Error(
+      "No workout specified for rescheduling. Please specify which workout to move.",
+    );
   }
 
   // Parse the new date - handle relative dates like "Tuesday"
@@ -111,7 +217,7 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
       parsedDate = new Date(newDate);
       if (isNaN(parsedDate.getTime())) {
         throw new Error(
-          `Invalid date format: ${newDate}. Please use a specific date (YYYY-MM-DD) or day of the week.`,
+          `Invalid date format: ${newDate}. Please use a specific date (YYYY-MM-DD) or day of week.`,
         );
       }
     }
@@ -126,11 +232,11 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
     },
   });
 
-  if (existingWorkout) {
+  if (existingWorkout && existingWorkout.id !== actualWorkoutId) {
     throw new Error("There is already a run scheduled for this date");
   }
 
-  // Update the workout
+  // Update workout
   const updated = await prisma.trainingPlan.update({
     where: { id: actualWorkoutId, userId },
     data: {
@@ -147,6 +253,38 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
       description: updated.description,
     },
   };
+}
+
+// Helper function to get next occurrence of a specific day
+function getNextOccurrenceOfDay(dayOfWeek: string): Date {
+  const daysOfWeek = [
+    "sunday",
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+  ];
+  const dayIndex = daysOfWeek.indexOf(dayOfWeek.toLowerCase());
+
+  if (dayIndex === -1) {
+    throw new Error(`Invalid day: ${dayOfWeek}`);
+  }
+
+  const today = new Date();
+  const currentDayIndex = today.getDay();
+  let daysToAdd = dayIndex - currentDayIndex;
+
+  if (daysToAdd <= 0) {
+    daysToAdd += 7;
+  }
+
+  const targetDate = new Date(today);
+  targetDate.setDate(today.getDate() + daysToAdd);
+  targetDate.setHours(0, 0, 0, 0);
+
+  return targetDate;
 }
 
 async function adaptTrainingPlanFunction(args: any, userId: string) {
