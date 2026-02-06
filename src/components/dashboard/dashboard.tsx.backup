@@ -260,7 +260,7 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
   const displayRun = viewedRun || nextRun; // Show viewed run if selected, otherwise next run
 
   return (
-    <div className="flex-1 min-h-0 md:flex justify-center items-center px-4 pb-2">
+    <div className="flex-1 min-h-0 flex justify-center items-center px-4 pb-2">
       <Carousel className="w-full h-full max-w-7xl [&>div]:h-full basis-[70%]">
         <CarouselContent className="h-full">
           {/* ACTION DASHBOARD */}
@@ -268,103 +268,103 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
             <div className="h-full flex flex-col md:flex-row gap-4">
               <div className="flex-1 h-full md:flex-1">
                 <Card className="w-full h-full bg-neutral-900 border-neutral-800 text-white p-4 md:p-6 flex flex-col justify-between items-start min-h-60 md:min-h-80 overflow-hidden">
-                  <div className="flex items-center justify-between w-full mb-2 md:mb-4">
-                    <h2 className="text-xs md:text-sm uppercase">
-                      {viewedRun ? "Run Details" : "Next Run"}
-                    </h2>
-                    {viewedRun && (
-                      <button
-                        onClick={handleBackToNextRun}
-                        className="text-xs text-gray-400 hover:text-white transition"
-                      >
-                        ← Back to Next Run
-                      </button>
-                    )}
-                  </div>
-                  {displayRun ? (
-                    <div className="flex-1 flex flex-col overflow-auto">
-                      <h1 className="text-2xl md:text-4xl font-bold mt-2">
-                        {displayRun.trainingPlan?.targetDistanceKm &&
-                        displayRun.trainingPlan?.targetDistanceKm > 0 &&
-                        displayRun.trainingPlan?.activityType === "RUN"
-                          ? `${displayRun.trainingPlan.targetDistanceKm}km `
-                          : ""}
-                        {displayRun.trainingPlan?.description}
-                      </h1>
-                      <p className="mt-2 text-sm md:text-base text-gray-300">
-                        {new Date(displayRun.date).toLocaleDateString("en-UK", {
-                          weekday: "long",
-                          month: "short",
-                          day: "numeric",
-                        })}
-                      </p>
-                      {displayRun.trainingPlan?.aiReasoning && (
-                        <div className="mt-4 p-3 bg-neutral-800 rounded-lg">
-                          <p className="text-xs md:text-sm text-gray-400 mb-1">
-                            Coach's Notes:
-                          </p>
-                          <p className="text-xs md:text-sm text-gray-300">
-                            {displayRun.trainingPlan.aiReasoning}
-                          </p>
-                        </div>
-                      )}
-                      <div className="mt-3 md:mt-6 flex gap-2 md:gap-3 items-start min-h-11">
-                        {displayRun.trainingPlan?.activityType === "RUN" &&
-                        displayRun.status === "SKIPPED" ? (
-                          <div className="text-xs md:text-sm text-red-400 self-center">
-                            Run marked as missed
-                          </div>
-                        ) : displayRun.trainingPlan?.activityType === "RUN" &&
-                          (isDateToday(displayRun.date) ||
-                            isDateInPast(displayRun.date)) ? (
-                          <button
-                            className="bg-white text-black px-3 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold hover:bg-gray-200 transition"
-                            onClick={() => handleLogRun(displayRun)}
-                          >
-                            {displayRun.runLog ? "Update Run" : "Log Run"}
-                          </button>
-                        ) : null}
-                        {displayRun.trainingPlan?.activityType === "RUN" &&
-                          isDateInPast(displayRun.date) &&
-                          !displayRun.runLog &&
-                          displayRun.status !== "SKIPPED" && (
-                            <button
-                              className="bg-red-600 text-white px-3 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold hover:bg-red-700 transition"
-                              onClick={() => handleMarkAsMissed(displayRun)}
-                            >
-                              Mark as Missed
-                            </button>
-                          )}
-                        {displayRun.trainingPlan?.activityType === "RUN" &&
-                          !isDateInPast(displayRun.date) &&
-                          !isDateToday(displayRun.date) && (
-                            <div className="text-xs md:text-sm text-gray-400 self-center">
-                              Future run - wait for the scheduled date
-                            </div>
-                          )}
-                        {!displayRun.trainingPlan?.activityType ||
-                        displayRun.trainingPlan?.activityType !== "RUN" ? (
-                          <div className="text-xs md:text-sm text-gray-400 self-center">
-                            {displayRun.trainingPlan?.description || "Rest day"}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex flex-col justify-center">
-                      <h1 className="text-2xl md:text-4xl font-bold mt-2">
-                        No upcoming runs
-                      </h1>
-                      <p className="mt-2 text-sm md:text-base text-gray-300">
-                        Check your training plan
-                      </p>
-                    </div>
+                <div className="flex items-center justify-between w-full mb-2 md:mb-4">
+                  <h2 className="text-xs md:text-sm uppercase">
+                    {viewedRun ? "Run Details" : "Next Run"}
+                  </h2>
+                  {viewedRun && (
+                    <button
+                      onClick={handleBackToNextRun}
+                      className="text-xs text-gray-400 hover:text-white transition"
+                    >
+                      ← Back to Next Run
+                    </button>
                   )}
-                </Card>
+                </div>
+                {displayRun ? (
+                  <div className="flex-1 flex flex-col overflow-auto">
+                    <h1 className="text-2xl md:text-4xl font-bold mt-2">
+                      {displayRun.trainingPlan?.targetDistanceKm &&
+                      displayRun.trainingPlan?.targetDistanceKm > 0 &&
+                      displayRun.trainingPlan?.activityType === "RUN"
+                        ? `${displayRun.trainingPlan.targetDistanceKm}km `
+                        : ""}
+                      {displayRun.trainingPlan?.description}
+                    </h1>
+                    <p className="mt-2 text-sm md:text-base text-gray-300">
+                      {new Date(displayRun.date).toLocaleDateString("en-UK", {
+                        weekday: "long",
+                        month: "short",
+                        day: "numeric",
+                      })}
+                    </p>
+                    {displayRun.trainingPlan?.aiReasoning && (
+                      <div className="mt-4 p-3 bg-neutral-800 rounded-lg">
+                        <p className="text-xs md:text-sm text-gray-400 mb-1">
+                          Coach's Notes:
+                        </p>
+                        <p className="text-xs md:text-sm text-gray-300">
+                          {displayRun.trainingPlan.aiReasoning}
+                        </p>
+                      </div>
+                    )}
+                    <div className="mt-3 md:mt-6 flex gap-2 md:gap-3 items-start min-h-11">
+                      {displayRun.trainingPlan?.activityType === "RUN" &&
+                      displayRun.status === "SKIPPED" ? (
+                        <div className="text-xs md:text-sm text-red-400 self-center">
+                          Run marked as missed
+                        </div>
+                      ) : displayRun.trainingPlan?.activityType === "RUN" &&
+                        (isDateToday(displayRun.date) ||
+                          isDateInPast(displayRun.date)) ? (
+                        <button
+                          className="bg-white text-black px-3 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold hover:bg-gray-200 transition"
+                          onClick={() => handleLogRun(displayRun)}
+                        >
+                          {displayRun.runLog ? "Update Run" : "Log Run"}
+                        </button>
+                      ) : null}
+                      {displayRun.trainingPlan?.activityType === "RUN" &&
+                        isDateInPast(displayRun.date) &&
+                        !displayRun.runLog &&
+                        displayRun.status !== "SKIPPED" && (
+                          <button
+                            className="bg-red-600 text-white px-3 md:px-6 py-1.5 md:py-2 rounded-full text-xs md:text-sm font-bold hover:bg-red-700 transition"
+                            onClick={() => handleMarkAsMissed(displayRun)}
+                          >
+                            Mark as Missed
+                          </button>
+                        )}
+                      {displayRun.trainingPlan?.activityType === "RUN" &&
+                        !isDateInPast(displayRun.date) &&
+                        !isDateToday(displayRun.date) && (
+                          <div className="text-xs md:text-sm text-gray-400 self-center">
+                            Future run - wait for the scheduled date
+                          </div>
+                        )}
+                      {!displayRun.trainingPlan?.activityType ||
+                      displayRun.trainingPlan?.activityType !== "RUN" ? (
+                        <div className="text-xs md:text-sm text-gray-400 self-center">
+                          {displayRun.trainingPlan?.description || "Rest day"}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex-1 flex flex-col justify-center">
+                    <h1 className="text-2xl md:text-4xl font-bold mt-2">
+                      No upcoming runs
+                    </h1>
+                    <p className="mt-2 text-sm md:text-base text-gray-300">
+                      Check your training plan
+                    </p>
+                  </div>
+                )}
+              </Card>
               </div>
 
               {/* Hide current week card on mobile when chat is expanded */}
-              <div className={`${isChatExpanded ? 'hidden md:flex' : 'flex'} h-2/5 md:h-full md:w-1/3 bg-white text-black p-4 flex-col rounded-2xl border-neutral-800`}>
+              <div className={`${isChatExpanded ? 'hidden md:flex' : 'flex'} h-2/5 md:h-full md:w-1/3 bg-white text-black p-4 flex-col`}>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm md:text-base font-bold shrink-0">
                     {currentWeek?.weekLabel || "This Week"}
@@ -436,6 +436,7 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
                   </div>
                 )}
               </div>
+
             </div>
           </CarouselItem>
 
@@ -473,6 +474,7 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
                   </div>
                 </div>
               </Card>
+              </div>
             </div>
           </CarouselItem>
         </CarouselContent>
