@@ -38,6 +38,7 @@ export default function RunCompletionModal({
   const [duration, setDuration] = useState(runData.targetDuration.toString());
   const [effort, setEffort] = useState(5); // 1-10 scale
   const [notes, setNotes] = useState("");
+  const [painReported, setPainReported] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   if (!isOpen) return null;
@@ -53,6 +54,7 @@ export default function RunCompletionModal({
       actualDuration: parseInt(duration), // minutes
       effortRating: effort,
       feedbackNotes: notes,
+      painReported,
     };
 
     // Simulate API delay or call the real function
@@ -144,6 +146,20 @@ export default function RunCompletionModal({
               placeholder="e.g. Felt strong, but my left knee tweaked a bit at 3km..."
               className="w-full h-24 bg-neutral-800 text-white rounded-lg px-4 py-3 outline-none focus:ring-2 focus:ring-orange-500 border border-neutral-700 resize-none text-sm"
             />
+          </div>
+
+          {/* Section 4: Pain reported toggle */}
+          <div className="flex items-center gap-3">
+            <input
+              id="painReported"
+              type="checkbox"
+              checked={painReported}
+              onChange={(e) => setPainReported(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <label htmlFor="painReported" className="text-sm text-gray-300">
+              I experienced pain or an injury during this run
+            </label>
           </div>
 
           {/* Submit Button */}

@@ -105,18 +105,38 @@ export async function POST(req: NextRequest) {
       await triggerNextWeekGeneration(user.id);
     }
 
-    // Auto-detect injury response if pain was reported
+    // Auto-detect injury: create a notification with AI suggestion (do not auto-apply changes)
     if (painReported) {
-      console.log("Pain reported, triggering injury response");
-      const { triggerInjuryResponse } = await import("@/lib/ai-automation");
-      await triggerInjuryResponse(user.id, {
-        painReported,
-        feedbackNotes,
-        actualDistance,
-        actualDuration,
-        effortRating,
-        runId,
-      });
+      try {
+        console.log(
+          "Pain reported, generating injury suggestion and creating notification",
+        );
+        const { analyzeInjuryReport } = await import("@/lib/ai-automation");
+
+        const suggestion = await analyzeInjuryReport(user.id, {
+          painReported,
+          feedbackNotes,
+          actualDistance,
+          actualDuration,
+          effortRating,
+          runId,
+        });
+
+        // Create notification for the user to review and confirm
+        await prisma.notification.create({
+          data: {
+            userId: user.id,
+            title: "Pain reported — review suggested recovery plan",
+            body: "We detected pain in your recent run. Review and confirm the suggested recovery actions.",
+            type: "injury",
+            payload: suggestion,
+            read: false,
+            responded: false,
+          },
+        });
+      } catch (err) {
+        console.error("Error creating injury notification:", err);
+      }
     }
 
     return NextResponse.json({

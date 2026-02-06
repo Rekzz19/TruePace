@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import NotificationBell from "@/components/notifications/NotificationBell";
 import { supabase } from "@/lib/supabase";
 import { User } from "@supabase/supabase-js";
 import Dashboard from "@/components/dashboard/dashboard";
@@ -51,11 +52,11 @@ export default function DashboardPage() {
     try {
       // Sign out from Supabase
       await supabase.auth.signOut();
-      
+
       // Clear any local storage/session storage
       localStorage.clear();
       sessionStorage.clear();
-      
+
       // Redirect to home page
       router.push("/");
     } catch (error) {
@@ -63,7 +64,7 @@ export default function DashboardPage() {
       // Still redirect even if there's an error
       router.push("/");
     }
-  }
+  };
 
   return (
     <main className="h-screen bg-black text-white flex flex-col overflow-hidden">
@@ -72,14 +73,19 @@ export default function DashboardPage() {
           <h1 className="text-3xl md:text-5xl font-black tracking-tighter italic text-white uppercase">
             DASHBOARD
           </h1>
-          <p className="text-gray-400 text-sm md:text-base">Keep up the pace!</p>
+          <p className="text-gray-400 text-sm md:text-base">
+            Keep up the pace!
+          </p>
         </div>
-        <Button
-          onClick={handleLogout}
-          className="bg-[#FF6600] hover:bg-[#e65c00] text-black font-bold uppercase tracking-widest py-2 px-3 text-sm transition-transform active:scale-95"
-        >
-          Logout
-        </Button>
+        <div className="flex items-center gap-3">
+          <NotificationBell />
+          <Button
+            onClick={handleLogout}
+            className="bg-[#FF6600] hover:bg-[#e65c00] text-black font-bold uppercase tracking-widest py-2 px-3 text-sm transition-transform active:scale-95"
+          >
+            Logout
+          </Button>
+        </div>
       </div>
 
       <Dashboard isChatExpanded={!isChatCollapsed} />

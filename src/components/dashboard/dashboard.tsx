@@ -238,6 +238,12 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
 
       if (response.ok) {
         fetchTrainingData(); // Refresh data
+        // Notify notification bell to refresh once
+        try {
+          window.dispatchEvent(new CustomEvent("runLogged"));
+        } catch (e) {
+          console.warn("Unable to dispatch runLogged event", e);
+        }
         setIsLogModalOpen(false);
       } else {
         console.error("Failed to log run");
@@ -364,7 +370,9 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
               </div>
 
               {/* Hide current week card on mobile when chat is expanded */}
-              <div className={`${isChatExpanded ? 'hidden md:flex' : 'flex'} h-2/5 md:h-full md:w-1/3 bg-white text-black p-4 flex-col rounded-2xl border-neutral-800`}>
+              <div
+                className={`${isChatExpanded ? "hidden md:flex" : "flex"} h-2/5 md:h-full md:w-1/3 bg-white text-black p-4 flex-col rounded-2xl border-neutral-800`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-sm md:text-base font-bold shrink-0">
                     {currentWeek?.weekLabel || "This Week"}
@@ -460,7 +468,9 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
                       )}
                       km
                     </div>
-                    <div className="text-xs md:text-xs text-gray-500">Total Distance</div>
+                    <div className="text-xs md:text-xs text-gray-500">
+                      Total Distance
+                    </div>
                   </div>
                   <div className="bg-gray-50 p-4 rounded">
                     <div className="text-lg md:text-2xl font-bold">
@@ -469,7 +479,9 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
                         0,
                       )}
                     </div>
-                    <div className="text-xs md:text-xs text-gray-500">Completed Runs</div>
+                    <div className="text-xs md:text-xs text-gray-500">
+                      Completed Runs
+                    </div>
                   </div>
                 </div>
               </Card>

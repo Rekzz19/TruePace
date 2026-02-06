@@ -123,3 +123,13 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Simple blink animation used for urgent notification bell */
+@keyframes blinker {
+  50% {
+    opacity: 0.2;
+  }
+}
+.animate-blink {
+  animation: blinker 1s linear infinite;
+}

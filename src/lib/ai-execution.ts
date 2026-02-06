@@ -365,54 +365,160 @@ async function adaptTrainingPlanFunction(args: any, userId: string) {
 }
 
 async function handleInjuryResponseFunction(args: any, userId: string) {
-  const { injuryType, affectedArea, severity, action } = args;
+  const {
+    injuryType,
+    affectedArea,
+    severity,
+    action,
+    downtimeDays,
+    recommendedPlan,
+    recommendations,
+  } = args;
 
-  // Safety-critical: always reduce training load
-  const operations = [];
-  const startDate = new Date();
-  const endDate = new Date();
-  endDate.setDate(startDate.getDate() + 7); // 1 week minimum rest
+  // Prefer AI-provided explicit plan when available (minimal determinism)
+  // recommendedPlan: [{ planId, action: 'REST'|'CROSS_TRAIN'|'RESCHEDULE', newDate?, note? }]
+  const operations: any[] = [];
 
-  // Convert next 3 runs to rest/cross-train based on severity
-  const upcomingRuns = await prisma.trainingPlan.findMany({
-    where: {
-      userId,
-      scheduledDate: { gte: startDate, lte: endDate },
-      activityType: ActivityType.RUN,
-    },
-    orderBy: { scheduledDate: "asc" },
-    take: 3,
-  });
+  if (
+    recommendedPlan &&
+    Array.isArray(recommendedPlan) &&
+    recommendedPlan.length > 0
+  ) {
+    for (const item of recommendedPlan) {
+      if (item.planId) {
+        // Map action to fields
+        if (item.action === "RESCHEDULE" && item.newDate) {
+          const parsed = new Date(item.newDate);
+          operations.push(
+            prisma.trainingPlan.update({
+              where: { id: item.planId },
+              data: {
+                scheduledDate: parsed,
+                aiReasoning: item.note || "AI reschedule",
+              },
+            }),
+          );
+        } else if (item.action === "REST") {
+          operations.push(
+            prisma.trainingPlan.update({
+              where: { id: item.planId },
+              data: {
+                activityType: ActivityType.REST,
+                targetDistanceKm: null,
+                targetDurationMin: null,
+                aiReasoning: item.note || "AI set to rest",
+              },
+            }),
+          );
+        } else if (item.action === "CROSS_TRAIN") {
+          operations.push(
+            prisma.trainingPlan.update({
+              where: { id: item.planId },
+              data: {
+                activityType: ActivityType.CROSS_TRAIN,
+                targetDurationMin: item.duration || 30,
+                aiReasoning: item.note || "AI set to cross-train",
+              },
+            }),
+          );
+        }
+      }
+    }
+  } else {
+    // If no explicit plan, use AI-provided downtimeDays or recommendations if present
+    let days = null;
+    if (typeof downtimeDays === "number" && downtimeDays > 0)
+      days = downtimeDays;
+    else if (recommendations && recommendations.downtimeDays)
+      days = recommendations.downtimeDays;
 
-  for (const run of upcomingRuns) {
-    let newActivityType: ActivityType = ActivityType.REST;
-
-    if (action === "cross_train" && severity !== "severe") {
-      newActivityType = ActivityType.CROSS_TRAIN;
+    // If AI did not provide explicit days, infer conservatively from severity (fallback only)
+    if (days === null) {
+      if (severity === "severe") days = 14;
+      else if (severity === "moderate") days = 7;
+      else days = 3; // mild or unknown
     }
 
-    operations.push(
-      prisma.trainingPlan.update({
-        where: { id: run.id },
-        data: {
-          activityType: newActivityType,
-          targetDistanceKm:
-            newActivityType === ActivityType.REST
-              ? null
-              : (run.targetDistanceKm || 5) * 0.5,
-          targetDurationMin:
-            newActivityType === ActivityType.REST
-              ? null
-              : (run.targetDurationMin || 30) * 0.7,
-          aiReasoning: `Injury response: ${injuryType} - ${affectedArea} (${severity})`,
-        },
-      }),
-    );
+    // Convert upcoming runs within downtime window to rest/cross-train based on recommended action
+    const startDate = new Date();
+    const downtimeEnd = new Date(startDate);
+    downtimeEnd.setDate(startDate.getDate() + days - 1);
+
+    const runsToAdjust = await prisma.trainingPlan.findMany({
+      where: {
+        userId,
+        scheduledDate: { gte: startDate, lte: downtimeEnd },
+        activityType: ActivityType.RUN,
+      },
+      orderBy: { scheduledDate: "asc" },
+    });
+
+    for (const run of runsToAdjust) {
+      let newActivityType: ActivityType = ActivityType.REST;
+      if (action === "cross_train" && severity !== "severe")
+        newActivityType = ActivityType.CROSS_TRAIN;
+
+      operations.push(
+        prisma.trainingPlan.update({
+          where: { id: run.id },
+          data: {
+            activityType: newActivityType,
+            targetDistanceKm:
+              newActivityType === ActivityType.REST
+                ? null
+                : (run.targetDistanceKm || 5) * 0.5,
+            targetDurationMin:
+              newActivityType === ActivityType.REST
+                ? null
+                : (run.targetDurationMin || 30) * 0.7,
+            aiReasoning: `Injury response: ${injuryType} - ${affectedArea} (${severity})`,
+          },
+        }),
+      );
+    }
+
+    // Shift scheduled runs which fall within the downtime window forward by 'days'
+    const runsToShift = await prisma.trainingPlan.findMany({
+      where: {
+        userId,
+        scheduledDate: { gte: startDate, lte: downtimeEnd },
+        activityType: ActivityType.RUN,
+      },
+      orderBy: { scheduledDate: "asc" },
+    });
+
+    for (const run of runsToShift) {
+      let newDate = new Date(run.scheduledDate);
+      newDate.setDate(newDate.getDate() + days);
+
+      // Avoid conflicts
+      let tries = 0;
+      while (tries < 30) {
+        const conflict = await prisma.trainingPlan.findFirst({
+          where: {
+            userId,
+            scheduledDate: newDate,
+            activityType: ActivityType.RUN,
+          },
+        });
+        if (!conflict) break;
+        newDate.setDate(newDate.getDate() + 1);
+        tries++;
+      }
+
+      operations.push(
+        prisma.trainingPlan.update({
+          where: { id: run.id },
+          data: {
+            scheduledDate: newDate,
+            aiReasoning: `Rescheduled due to reported injury (downtime ${days} days)`,
+          },
+        }),
+      );
+    }
   }
 
-  if (operations.length > 0) {
-    await prisma.$transaction(operations);
-  }
+  if (operations.length > 0) await prisma.$transaction(operations);
 
   return {
     success: true,
@@ -420,6 +526,7 @@ async function handleInjuryResponseFunction(args: any, userId: string) {
     injuryType,
     severity,
     action,
+    appliedDays: downtimeDays ?? null,
   };
 }
 
