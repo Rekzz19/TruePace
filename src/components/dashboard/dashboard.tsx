@@ -260,7 +260,7 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
   const displayRun = viewedRun || nextRun; // Show viewed run if selected, otherwise next run
 
   return (
-    <div className="flex-1 min-h-0 flex justify-center items-center px-4 pb-2">
+    <div className="flex-1 min-h-0 md:flex justify-center items-center px-4 pb-2">
       <Carousel className="w-full h-full max-w-7xl [&>div]:h-full basis-[70%]">
         <CarouselContent className="h-full">
           {/* ACTION DASHBOARD */}
