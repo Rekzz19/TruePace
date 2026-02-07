@@ -9,14 +9,14 @@ datasource db {
 }
 
 model Profile {
-  id              String   @id
-  displayName     String?
-  nickName        String?
+  id          String  @id
+  displayName String?
+  nickName    String?
 
-  age             Int?
-  weight          Float?
-  height          Float?
-  
+  age    Int?
+  weight Float?
+  height Float?
+
   experienceLevel String? // 'beginner', 'intermediate', 'advanced', 'professional'
   goal            Goal
   daysAvailable   String[]
@@ -27,6 +27,7 @@ model Profile {
   // Relations
   trainingPlans TrainingPlan[]
   runLogs       RunLog[]
+  notifications Notification[]
 
   @@map("profiles") // Save it as 'profiles' in the DB
 }
@@ -73,6 +74,23 @@ model RunLog {
   trainingPlan TrainingPlan? @relation(fields: [planId], references: [id])
 
   @@map("run_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String?
+  type      String?
+  payload   Json?
+  read      Boolean  @default(false)
+  responded Boolean  @default(false)
+  response  Json?
+  createdAt DateTime @default(now())
+
+  user Profile @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
 }
 
 enum ActivityType {
