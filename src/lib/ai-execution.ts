@@ -29,6 +29,15 @@ export async function executeToolCall(toolCall: any, userId: string) {
 
 async function rescheduleWorkoutFunction(args: any, userId: string) {
   const { workoutId, newDate, reason, preserveIntensity } = args;
+  // Additional options supported from AI input:
+  // - workoutIds: string[] to reschedule multiple runs
+  // - shiftDays: number to shift selected runs by N days
+  // - resolveStrategy: 'error' | 'shift_conflict_forward' (default: 'shift_conflict_forward')
+  const {
+    workoutIds,
+    shiftDays,
+    resolveStrategy = "shift_conflict_forward",
+  } = args;
 
   // If AI provided a placeholder ID, find the actual workout
   let actualWorkoutId = workoutId;
@@ -71,9 +80,33 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
       );
     }
   } else if (workoutId && workoutId.includes("_workout")) {
-    // Handle day-specific workouts (tuesday_workout, wednesday_workout, etc.)
-    const dayOfWeek = workoutId.split("_")[0];
-    const targetDate = getNextOccurrenceOfDay(dayOfWeek);
+    // Handle day-specific workouts (tuesday_workout, wednesday_workout, today_workout, tomorrow_workout, etc.)
+    const dayOfWeekRaw = workoutId.split("_")[0];
+    const dayOfWeek = String(dayOfWeekRaw).toLowerCase();
+
+    let targetDate: Date;
+
+    if (dayOfWeek === "today") {
+      targetDate = new Date();
+      targetDate.setHours(0, 0, 0, 0);
+    } else if (dayOfWeek === "tomorrow") {
+      targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() + 1);
+      targetDate.setHours(0, 0, 0, 0);
+    } else if (dayOfWeek === "yesterday") {
+      targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() - 1);
+      targetDate.setHours(0, 0, 0, 0);
+    } else {
+      // Assume a weekday name
+      try {
+        targetDate = getNextOccurrenceOfDay(dayOfWeek);
+      } catch (err) {
+        throw new Error(
+          `Unrecognized workout identifier: ${workoutId}. Use explicit date (YYYY-MM-DD) or a weekday name.`,
+        );
+      }
+    }
 
     targetWorkout = await prisma.trainingPlan.findFirst({
       where: {
@@ -109,48 +142,72 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
     if (targetWorkout) {
       actualWorkoutId = targetWorkout.id;
     } else {
-      // If exact ID fails, try to find by description pattern matching
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const tomorrow = new Date(today);
-      tomorrow.setDate(today.getDate() + 1);
-      tomorrow.setHours(23, 59, 59, 999);
+      // If exact ID fails, try to find by description pattern matching over a wider window
+      const rangeStart = new Date();
+      rangeStart.setDate(rangeStart.getDate() - 7);
+      rangeStart.setHours(0, 0, 0, 0);
+      const rangeEnd = new Date();
+      rangeEnd.setDate(rangeEnd.getDate() + 14);
+      rangeEnd.setHours(23, 59, 59, 999);
 
-      // Try to find workout that matches the ID pattern
       const allWorkouts = await prisma.trainingPlan.findMany({
         where: {
           userId,
           scheduledDate: {
-            gte: today,
-            lt: tomorrow,
+            gte: rangeStart,
+            lt: rangeEnd,
           },
         },
       });
 
-      // Look for partial matches or similar descriptions
-      const matchingWorkout = allWorkouts.find((w) => {
-        // Check if the workout ID contains identifying information
-        if (
-          workoutId.includes(w.id) ||
-          w.description?.toLowerCase().includes(
-            workoutId
-              .toLowerCase()
-              .replace(/[^a-z0-9_]/g, "")
-              .substring(0, 8),
-          ) ||
-          // Check date proximity for AI-generated IDs
-          (workoutId.includes("2026-") &&
-            w.scheduledDate
-              .toISOString()
-              .split("T")[0]
-              .includes(
-                workoutId.split("_")[0]?.split("-")[1]?.split(":")[0] || "",
-              ))
-        ) {
-          return w;
+      // Try to parse date-based AI IDs like '2026-02-09_RUN_Easy Aerobic Run'
+      let matchingWorkout: any = null;
+      const dateMatch = workoutId.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateMatch) {
+        const dateStr = dateMatch[1];
+        const candidates = allWorkouts.filter(
+          (w) => w.scheduledDate.toISOString().split("T")[0] === dateStr,
+        );
+        if (candidates.length > 0) {
+          // Extract description part from the AI-provided id (after the second underscore)
+          const descPart = workoutId
+            .split("_")
+            .slice(2)
+            .join(" ")
+            .replace(/_/g, " ")
+            .toLowerCase()
+            .trim();
+
+          matchingWorkout =
+            candidates.find(
+              (c) => (c.description || "").toLowerCase() === descPart,
+            ) ||
+            candidates.find((c) =>
+              (c.description || "").toLowerCase().includes(descPart),
+            ) ||
+            candidates[0];
         }
-        return null;
-      });
+      }
+
+      // Fallback: token-match across descriptions
+      if (!matchingWorkout) {
+        const norm = workoutId.toLowerCase().replace(/[^a-z0-9 ]/g, " ");
+        const tokens = norm.split(/\s+/).filter(Boolean);
+
+        let bestScore = 0;
+        for (const w of allWorkouts) {
+          const desc = (w.description || "").toLowerCase();
+          let score = 0;
+          for (const t of tokens) {
+            if (t.length < 3) continue;
+            if (desc.includes(t)) score++;
+          }
+          if (score > bestScore) {
+            bestScore = score;
+            matchingWorkout = w;
+          }
+        }
+      }
 
       if (matchingWorkout) {
         actualWorkoutId = matchingWorkout.id;
@@ -161,7 +218,7 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
         throw new Error(
           `Workout with ID ${workoutId} not found. Please check your training plan. Available workouts:\n` +
             allWorkouts
-              .slice(0, 5)
+              .slice(0, 10)
               .map(
                 (w) =>
                   `  - ${w.description} (${w.scheduledDate.toISOString().split("T")[0]})`,
@@ -223,6 +280,49 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
     }
   }
 
+  // If multiple workoutIds provided, perform batch shift by shiftDays
+  const operations: any[] = [];
+
+  if (Array.isArray(workoutIds) && typeof shiftDays === "number") {
+    // Normalize shiftDays
+    const sd = Math.round(shiftDays);
+    for (const id of workoutIds) {
+      const w = await prisma.trainingPlan.findFirst({ where: { id, userId } });
+      if (!w) continue;
+      const newDt = new Date(w.scheduledDate);
+      newDt.setDate(newDt.getDate() + sd);
+
+      // Find next free date if conflict exists
+      let tries = 0;
+      while (tries < 30) {
+        const conflict = await prisma.trainingPlan.findFirst({
+          where: {
+            userId,
+            scheduledDate: newDt,
+            activityType: ActivityType.RUN,
+          },
+        });
+        if (!conflict || conflict.id === w.id) break;
+        newDt.setDate(newDt.getDate() + 1);
+        tries++;
+      }
+
+      operations.push(
+        prisma.trainingPlan.update({
+          where: { id: w.id },
+          data: {
+            scheduledDate: newDt,
+            aiReasoning: `AI batch-shift by ${sd} days: ${reason || "user request"}`,
+          },
+        }),
+      );
+    }
+
+    if (operations.length > 0) await prisma.$transaction(operations);
+
+    return { success: true, modified: operations.length };
+  }
+
   // Validate new date doesn't conflict with existing workouts
   const existingWorkout = await prisma.trainingPlan.findFirst({
     where: {
@@ -233,25 +333,90 @@ async function rescheduleWorkoutFunction(args: any, userId: string) {
   });
 
   if (existingWorkout && existingWorkout.id !== actualWorkoutId) {
-    throw new Error("There is already a run scheduled for this date");
+    if (resolveStrategy === "error") {
+      throw new Error("There is already a run scheduled for this date");
+    }
+
+    // Default: shift conflicting run(s) forward to make room, preserving order
+    if (resolveStrategy === "shift_conflict_forward") {
+      // We'll move the conflicting workout and any subsequent conflicting runs forward by 1 day
+      const toShift: any[] = [];
+      let cursorDate = new Date(parsedDate);
+
+      // Collect runs starting at parsedDate and onwards up to 30 days or until gap found
+      for (let i = 0; i < 30; i++) {
+        const found = await prisma.trainingPlan.findFirst({
+          where: {
+            userId,
+            scheduledDate: cursorDate,
+            activityType: ActivityType.RUN,
+          },
+        });
+        if (found) {
+          toShift.push(found);
+          cursorDate.setDate(cursorDate.getDate() + 1);
+        } else {
+          break; // gap found
+        }
+      }
+
+      // Build operations: shift each found run by +1 day, taking care of cascading conflicts
+      for (const run of toShift) {
+        let newDt = new Date(run.scheduledDate);
+        newDt.setDate(newDt.getDate() + 1);
+
+        // Avoid conflicts by pushing forward
+        let tries = 0;
+        while (tries < 30) {
+          const conflict = await prisma.trainingPlan.findFirst({
+            where: {
+              userId,
+              scheduledDate: newDt,
+              activityType: ActivityType.RUN,
+            },
+          });
+          if (!conflict) break;
+          newDt.setDate(newDt.getDate() + 1);
+          tries++;
+        }
+
+        operations.push(
+          prisma.trainingPlan.update({
+            where: { id: run.id },
+            data: {
+              scheduledDate: newDt,
+              aiReasoning: `AI-resolved conflict: shifted due to reschedule of ${actualWorkoutId}`,
+            },
+          }),
+        );
+      }
+    }
   }
 
-  // Update workout
-  const updated = await prisma.trainingPlan.update({
-    where: { id: actualWorkoutId, userId },
-    data: {
-      scheduledDate: parsedDate,
-      aiReasoning: `Rescheduled: ${reason}${preserveIntensity ? " (intensity preserved)" : " (intensity reduced)"}`,
-    },
+  // Update the requested workout to parsedDate
+  operations.push(
+    prisma.trainingPlan.update({
+      where: { id: actualWorkoutId, userId },
+      data: {
+        scheduledDate: parsedDate,
+        aiReasoning: `Rescheduled: ${reason}${preserveIntensity ? " (intensity preserved)" : ""}`,
+      },
+    }),
+  );
+
+  if (operations.length > 0) await prisma.$transaction(operations);
+
+  // Return list of modified workouts for confirmation
+  const modified = await prisma.trainingPlan.findMany({
+    where: { userId, aiReasoning: { contains: "Rescheduled:" } },
+    orderBy: { scheduledDate: "asc" },
+    take: 30,
   });
 
   return {
     success: true,
-    updated: {
-      id: updated.id,
-      newDate: updated.scheduledDate,
-      description: updated.description,
-    },
+    modifiedCount: operations.length,
+    modified,
   };
 }
 

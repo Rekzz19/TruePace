@@ -65,8 +65,32 @@ export async function POST(req: Request) {
     }));
 
     // Enhanced system prompt with autonomous behavior awareness
+    const todayIso = today.toISOString().split("T")[0];
+    const todayLong = today.toLocaleDateString("en-US", { weekday: "long" });
+
     const systemPrompt = `
 You are TruePace, an AI running coach assistant with advanced autonomous capabilities.
+
+CURRENT DATE: ${todayIso} (${todayLong})
+
+DATE INTERPRETATION RULES:
+- Interpret "today" as ${todayIso}.
+- Interpret "tomorrow" as the day after ${todayIso}.
+- When the user says a weekday (e.g., "Saturday"), interpret it as the next occurrence of that weekday on or after ${todayIso}, unless they explicitly say "next <weekday>" which should mean the following week's weekday.
+- When the user uses phrases like "move tomorrow's run to today", map those relative phrases using CURRENT DATE before emitting tool calls.
+- Always return dates in ISO format YYYY-MM-DD in tool call parameters.
+  - If uncertain about which date the user means, ask a clarifying question instead of guessing.
+
+  STRUCTURED REFERENCES:
+  - When referring to a specific workout in a tool call, include a structured reference whenever possible.
+  - Preferred fields: "planId" (the exact DB id) and "humanLabel" (a readable label like "Sat 2026-02-07 Tempo Run").
+  - If you do not know the "planId", include a clear "humanLabel" and a date; the server will attempt fuzzy matching.
+  - Always prefer "planId" when known; "workoutId" may be used as a fallback for backward compatibility.
+
+CONFIRMATION RULES:
+  - Before emitting any tool call that will modify user data (reschedule, update, adapt, handleInjuryResponse, generateNextWeek), ask the user a direct confirmation question in plain language describing the intended change (include ISO dates and workout titles where possible).
+  - Do NOT assume implicit confirmation. The agent should only emit a tool call with "input.confirmed = true" when the user has explicitly confirmed the action.
+  - If uncertain, ask a clarifying question instead of emitting a tool call.
 
 USER PROFILE:
 - Goal: ${profile.goal}
@@ -145,24 +169,99 @@ Analyze user's request, determine appropriate tools, and take initiative when be
       abortSignal: AbortSignal.timeout(30000),
     });
 
-    // Execute any tool calls that were generated
+    // Handle any tool calls that were generated
     if (result.toolCalls && result.toolCalls.length > 0) {
+      // If any tool call is not explicitly confirmed by the user (input.confirmed !== true)
+      let unconfirmed = result.toolCalls.filter(
+        (tc: any) => !(tc.input && tc.input.confirmed === true),
+      );
+
+      // Heuristic: if the most recent user message is an explicit affirmative ("yes", "confirm", "do it", etc.),
+      // treat that as confirmation and set input.confirmed = true for all tool calls.
+      try {
+        const lastUserMessage = (messages || [])
+          .slice()
+          .reverse()
+          .find((m: any) => m.role === "user");
+
+        if (lastUserMessage && typeof lastUserMessage.content === "string") {
+          const affirmative = /\b(?:yes|yep|yeah|y|confirm|confirmed|do it|go ahead|apply|please do it|ok|okay|sure)\b/i;
+          if (affirmative.test(lastUserMessage.content)) {
+            console.log("Detected user confirmation in chat; auto-confirming tool calls.");
+            for (const tc of result.toolCalls) {
+              (tc as any).input = (tc as any).input || {};
+              (tc as any).input.confirmed = true;
+            }
+            // Recompute unconfirmed
+            unconfirmed = result.toolCalls.filter(
+              (tc: any) => !(tc.input && tc.input.confirmed === true),
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("Confirmation heuristic failed:", err);
+      }
+
+      if (unconfirmed.length > 0) {
+        // Do not execute; prompt the client/UI to ask the user to confirm.
+        console.log("Tool calls require user confirmation, returning without execution.");
+        return NextResponse.json({
+          response: result.text,
+          toolCalls: result.toolCalls,
+          requiresConfirmation: true,
+        });
+      }
+
+      // All tool calls are confirmed: execute them and collect results
+      const toolResults: any[] = [];
       for (const toolCall of result.toolCalls) {
         console.log("AI requested tool call:", toolCall);
         try {
           const toolResult = await executeToolCall(toolCall, userId);
           console.log("Tool execution result:", toolResult);
+          toolResults.push({ toolCall, toolResult });
         } catch (error) {
           console.error("Tool execution error:", error);
-          throw error;
+          // Return error details to client instead of throwing to allow graceful UI handling
+          return NextResponse.json({
+            error: "Tool execution failed",
+            details: String(error),
+            toolCall,
+          }, { status: 500 });
         }
+      }
+
+      // Ask the assistant to summarize actions taken for the user
+      try {
+        const summaryPrompt = `You just executed the following tool calls and their results. Produce a concise, user-facing summary of what was changed, why, and any next steps the user should know about. Return plain text suitable to show in the UI.\n\nTool results: ${JSON.stringify(toolResults, null, 2)}`;
+
+        const summary = await generateText({
+          model: google("gemini-2.5-flash"),
+          system: "You are TruePace, summarizing recent actions for the user.",
+          messages: [
+            { role: "user", content: summaryPrompt },
+          ],
+          maxRetries: 0,
+          abortSignal: AbortSignal.timeout(15000),
+        });
+
+        return NextResponse.json({
+          response: result.text,
+          toolCalls: result.toolCalls,
+          toolResults,
+          summary: summary.text,
+        });
+      } catch (err) {
+        console.error("Failed to generate summary:", err);
+        return NextResponse.json({
+          response: result.text,
+          toolCalls: result.toolCalls,
+          toolResults,
+        });
       }
     }
 
-    return NextResponse.json({
-      response: result.text,
-      toolCalls: result.toolCalls, // Include tool calls for transparency
-    });
+    return NextResponse.json({ response: result.text });
   } catch (error) {
     console.error("Agent chat error:", error);
     return NextResponse.json(

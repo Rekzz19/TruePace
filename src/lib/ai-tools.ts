@@ -4,7 +4,11 @@ export const rescheduleWorkout = {
   description:
     "Reschedule a workout to a different date based on user request or constraints",
   parameters: z.object({
-    workoutId: z.string().describe("ID of workout to reschedule"),
+    // Prefer structured references when available: include `planId` (DB id) and `humanLabel` when possible.
+    // `workoutId` remains supported for backward compatibility and AI convenience.
+    workoutId: z.string().describe("ID of workout to reschedule (fallback)") ,
+    planId: z.string().optional().describe("Optional DB id for the workout (preferred when known)"),
+    humanLabel: z.string().optional().describe("Optional human-friendly label for the workout, e.g. 'Sat 2026-02-07 Tempo Run'"),
     newDate: z.string().describe("New date (YYYY-MM-DD)"),
     reason: z.string().describe("Why this reschedule is needed"),
     preserveIntensity: z
@@ -14,6 +18,8 @@ export const rescheduleWorkout = {
   }),
   inputSchema: z.object({
     workoutId: z.string(),
+    planId: z.string().optional(),
+    humanLabel: z.string().optional(),
     newDate: z.string(),
     reason: z.string(),
     preserveIntensity: z.boolean().optional(),
