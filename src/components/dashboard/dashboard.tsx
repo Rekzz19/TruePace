@@ -450,16 +450,61 @@ export default function Dashboard({ isChatExpanded = false }: DashboardProps) {
           {/* STATS */}
           <CarouselItem className="h-full">
             <div className="h-full px-1">
-              <Card className="h-full bg-white text-black p-6 flex flex-col">
-                <h2 className="text-lg md:text-xl font-bold mb-4 shrink-0">
+              <Card className={`h-full bg-white text-black ${isChatExpanded ? 'p-3' : 'p-6'} flex flex-col`}>
+                <h2 className={`${isChatExpanded ? 'text-base' : 'text-lg md:text-xl'} font-bold mb-2 shrink-0`}>
                   Your Progress
                 </h2>
 
-                <div className="flex-1 bg-gray-50 rounded-lg flex items-center justify-center text-gray-400 mb-4">
-                  [Chart Component]
+                <div className={`flex-1 bg-gray-50 rounded-lg ${isChatExpanded ? 'p-2' : 'p-4'} mb-4`}>
+                  <div className="h-full flex flex-col">
+                    <div className="flex-1 flex items-end justify-start relative">
+                      {/* Y-axis labels and gridlines */}
+                      <div className="absolute left-0 top-0 bottom-0 flex flex-col justify-between text-xs text-gray-400 w-6">
+                        {[10, 8, 6, 4, 2, 0].map((value) => (
+                          <div key={value} className="flex items-center relative" style={{ height: '16.67%' }}>
+                            <span className={`${isChatExpanded ? 'text-[10px]' : 'text-xs'} mr-1`}>{value}</span>
+                            <div className="absolute left-6 right-0 h-px bg-gray-200" />
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Chart area */}
+                      <div className={`flex-1 ${isChatExpanded ? 'ml-8' : 'ml-10'} h-full flex items-end justify-start relative`}>
+                        {weeks[currentWeekIndex] && (() => {
+                          const week = weeks[currentWeekIndex];
+                          const actualDistance = week.summary.totalDistance;
+                          // Calculate height as percentage of max 10km
+                          const barHeightPercent = (actualDistance / 10) * 100;
+                          
+                          return (
+                            <div className="flex flex-col items-start flex-1 max-w-32 h-full">
+                              <div className="w-full h-full flex flex-col items-center justify-end relative">
+                                <div 
+                                  className="w-full bg-orange-500 rounded-t transition-all duration-300 hover:bg-orange-600 flex items-center justify-center relative"
+                                  style={{ height: `${Math.max(barHeightPercent, 5)}%` }}
+                                >
+                                  <span className={`${isChatExpanded ? 'text-[11px]' : 'text-sm'} text-white font-medium`}>
+                                    {actualDistance}km
+                                  </span>
+                                </div>
+                                {/* X-axis line positioned at bottom */}
+                                <div className="absolute bottom-0 left-0 right-0 h-px bg-gray-400" />
+                              </div>
+                              <div className={`${isChatExpanded ? 'text-xs' : 'text-sm'} text-gray-500 mt-1 text-center font-medium`}>
+                                {week.weekLabel}
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className={`text-left ${isChatExpanded ? 'text-[10px]' : 'text-xs'} text-gray-500 mt-2 ${isChatExpanded ? 'ml-8' : 'ml-10'}`}>
+                      Weekly Distance (km)
+                    </div>
+                  </div>
                 </div>
 
-                <div className="shrink-0 grid grid-cols-2 gap-4">
+                <div className={`shrink-0 grid grid-cols-2 gap-4 ${isChatExpanded ? 'hidden' : ''}`}>
                   <div className="bg-gray-50 p-4 rounded">
                     <div className="text-lg md:text-2xl font-bold">
                       {weeks.reduce(

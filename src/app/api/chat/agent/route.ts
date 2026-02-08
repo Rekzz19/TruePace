@@ -1,7 +1,5 @@
 import { generateText } from "ai";
 import { OpikExporter } from "opik-vercel";
-import { Opik } from "opik";
-import { randomUUID } from "crypto";
 import { google } from "@ai-sdk/google";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -300,18 +298,10 @@ Analyze user's request, determine appropriate tools, and take initiative when be
       // All tool calls are confirmed: execute them and collect results
       const toolResults: any[] = [];
       for (const toolCall of result.toolCalls) {
-        console.log("AI requested tool call:", {
-          toolName: toolCall.toolName,
-          inputPreview: toolCall.input
-            ? JSON.stringify(toolCall.input).slice(0, 200)
-            : undefined,
-        });
+        console.log("AI requested tool call:", toolCall);
         try {
           const toolResult = await executeToolCall(toolCall, userId);
-          console.log("Tool execution result:", {
-            toolName: toolCall.toolName,
-            toolResult,
-          });
+          console.log("Tool execution result:", toolResult);
           toolResults.push({ toolCall, toolResult });
         } catch (error) {
           console.error("Tool execution error:", error);
