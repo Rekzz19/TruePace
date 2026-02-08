@@ -12,6 +12,8 @@ import {
 } from "@/lib/ai-tools";
 import { executeToolCall } from "@/lib/ai-execution";
 import { GEMINI_API_KEY } from "@/lib/gemini";
+import { Opik } from "opik";
+import { randomUUID } from "crypto";
 
 export async function POST(req: Request) {
   try {
