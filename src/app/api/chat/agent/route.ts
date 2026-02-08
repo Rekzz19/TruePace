@@ -12,6 +12,8 @@ import {
 } from "@/lib/ai-tools";
 import { executeToolCall } from "@/lib/ai-execution";
 import { GEMINI_API_KEY } from "@/lib/gemini";
+import { Opik } from "opik";
+import { randomUUID } from "crypto";
 
 export async function POST(req: Request) {
   try {
@@ -152,30 +154,100 @@ RESPONSE GUIDELINES:
 Analyze user's request, determine appropriate tools, and take initiative when beneficial.
 `;
 
-    const result = await generateText({
-      model: google("gemini-2.5-flash"),
-      system: systemPrompt,
-      messages: messages.map((msg: any) => ({
-        role: msg.role === "model" ? "assistant" : msg.role,
-        content: msg.content,
-      })),
-      tools: {
-        rescheduleWorkout,
-        adaptTrainingPlan,
-        handleInjuryResponse,
-        generateNextWeek,
-        updateWorkoutParameters,
+    const requestId = randomUUID();
+    const telemetrySettings = OpikExporter.getSettings({
+      name: "agent-chat-interaction",
+      metadata: {
+        userId: userId,
+        intent: "general_chat_or_tool_use",
+        requestId,
       },
-      maxRetries: 0,
-      abortSignal: AbortSignal.timeout(30000),
-      experimental_telemetry: OpikExporter.getSettings({
-        name: "agent-chat-interaction",
-        metadata: {
-          userId: userId,
-          intent: "general_chat_or_tool_use",
-        },
-      }),
     });
+
+    console.log("agent chat generateText - telemetrySettings:", {
+      userId,
+      requestId,
+      telemetrySample: telemetrySettings,
+    });
+
+    const opik = new Opik({ apiKey: process.env.OPIK_API_KEY });
+
+    const trace = opik.trace({
+      name: "agent-chat-interaction",
+      metadata: { userId, requestId },
+    });
+    const span = trace.span({
+      name: "generateText",
+      type: "llm",
+      input: { recentMessages: messages.slice(-3) },
+      metadata: { requestId, userId },
+    });
+
+    let result: any;
+    try {
+      result = await generateText({
+        model: google("gemini-2.5-flash"),
+        system: systemPrompt,
+        messages: messages.map((msg: any) => ({
+          role: msg.role === "model" ? "assistant" : msg.role,
+          content: msg.content,
+        })),
+        tools: {
+          rescheduleWorkout,
+          adaptTrainingPlan,
+          handleInjuryResponse,
+          generateNextWeek,
+          updateWorkoutParameters,
+        },
+        maxRetries: 0,
+        abortSignal: AbortSignal.timeout(30000),
+        experimental_telemetry: telemetrySettings,
+      });
+
+      span.update({
+        output: {
+          text:
+            typeof result.text === "string"
+              ? result.text.slice(0, 10000)
+              : result.text,
+        },
+      });
+      span.end();
+      trace.end();
+
+      try {
+        console.log("flushing opik for agent chat", { requestId });
+        await opik.flush();
+        console.log("opik flushed for agent chat", { requestId });
+      } catch (flushErr) {
+        console.error("opik flush failed for agent chat", {
+          requestId,
+          flushErr,
+        });
+      }
+
+      console.log("agent chat generateText result:", {
+        textPreview:
+          typeof result.text === "string"
+            ? result.text.slice(0, 200)
+            : undefined,
+        toolCalls: result.toolCalls ? result.toolCalls.length : 0,
+      });
+    } catch (err) {
+      span.update({ tags: ["error"], metadata: { error: String(err) } });
+      span.end();
+      trace.end();
+      try {
+        await opik.flush();
+      } catch (flushErr) {
+        console.error("opik flush failed after error", { requestId, flushErr });
+      }
+      console.error("generateText failed", { requestId, err });
+      return NextResponse.json(
+        { error: "Failed to generate response" },
+        { status: 500 },
+      );
+    }
 
     // Handle any tool calls that were generated
     if (result.toolCalls && result.toolCalls.length > 0) {
