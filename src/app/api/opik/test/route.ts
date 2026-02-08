@@ -9,7 +9,6 @@ export async function GET() {
   try {
     const span = trace.span({
       name: "ping",
-      type: "test",
       input: { now: new Date().toISOString() },
     });
 
