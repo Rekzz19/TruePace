@@ -95,7 +95,7 @@ export default function NotificationBell() {
             </button>
 
             {open && (
-              <div className="absolute right-0 w-60 mt-2 md:w-96 z-40">
+              <div className="absolute right-0 mt-2 w-96 z-40">
                 <Card className="shadow-lg">
                   <CardHeader>
                     <div className="flex items-center justify-between w-full">
