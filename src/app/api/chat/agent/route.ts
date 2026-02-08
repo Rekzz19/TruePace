@@ -1,4 +1,5 @@
 import { generateText } from "ai";
+import { OpikExporter } from "opik-vercel";
 import { google } from "@ai-sdk/google";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -167,6 +168,13 @@ Analyze user's request, determine appropriate tools, and take initiative when be
       },
       maxRetries: 0,
       abortSignal: AbortSignal.timeout(30000),
+      experimental_telemetry: OpikExporter.getSettings({
+        name: "agent-chat-interaction",
+        metadata: {
+          userId: userId,
+          intent: "general_chat_or_tool_use",
+        },
+      }),
     });
 
     // Handle any tool calls that were generated
@@ -185,9 +193,12 @@ Analyze user's request, determine appropriate tools, and take initiative when be
           .find((m: any) => m.role === "user");
 
         if (lastUserMessage && typeof lastUserMessage.content === "string") {
-          const affirmative = /\b(?:yes|yep|yeah|y|confirm|confirmed|do it|go ahead|apply|please do it|ok|okay|sure)\b/i;
+          const affirmative =
+            /\b(?:yes|yep|yeah|y|confirm|confirmed|do it|go ahead|apply|please do it|ok|okay|sure)\b/i;
           if (affirmative.test(lastUserMessage.content)) {
-            console.log("Detected user confirmation in chat; auto-confirming tool calls.");
+            console.log(
+              "Detected user confirmation in chat; auto-confirming tool calls.",
+            );
             for (const tc of result.toolCalls) {
               (tc as any).input = (tc as any).input || {};
               (tc as any).input.confirmed = true;
@@ -204,7 +215,9 @@ Analyze user's request, determine appropriate tools, and take initiative when be
 
       if (unconfirmed.length > 0) {
         // Do not execute; prompt the client/UI to ask the user to confirm.
-        console.log("Tool calls require user confirmation, returning without execution.");
+        console.log(
+          "Tool calls require user confirmation, returning without execution.",
+        );
         return NextResponse.json({
           response: result.text,
           toolCalls: result.toolCalls,
@@ -223,11 +236,14 @@ Analyze user's request, determine appropriate tools, and take initiative when be
         } catch (error) {
           console.error("Tool execution error:", error);
           // Return error details to client instead of throwing to allow graceful UI handling
-          return NextResponse.json({
-            error: "Tool execution failed",
-            details: String(error),
-            toolCall,
-          }, { status: 500 });
+          return NextResponse.json(
+            {
+              error: "Tool execution failed",
+              details: String(error),
+              toolCall,
+            },
+            { status: 500 },
+          );
         }
       }
 
@@ -238,9 +254,7 @@ Analyze user's request, determine appropriate tools, and take initiative when be
         const summary = await generateText({
           model: google("gemini-2.5-flash"),
           system: "You are TruePace, summarizing recent actions for the user.",
-          messages: [
-            { role: "user", content: summaryPrompt },
-          ],
+          messages: [{ role: "user", content: summaryPrompt }],
           maxRetries: 0,
           abortSignal: AbortSignal.timeout(15000),
         });

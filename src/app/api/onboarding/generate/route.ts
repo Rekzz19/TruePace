@@ -1,11 +1,15 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { Opik } from "opik";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 // Use standard Flash model
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const opik = new Opik();
 
 export async function POST(req: Request) {
+  const trace = opik.trace({ name: "onboarding_generation" });
+
   try {
     const { userId } = await req.json();
 
@@ -41,9 +45,15 @@ export async function POST(req: Request) {
       }
     `;
 
+    const span = trace.span({
+      name: "gemini-2.5-flash-onboarding",
+      type: "llm",
+      input: { prompt },
+    });
+
     // 3. Call Gemini with JSON Enforcement
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       generationConfig: {
         responseMimeType: "application/json",
       },
@@ -51,6 +61,11 @@ export async function POST(req: Request) {
 
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
+
+    span.update({
+      output: { text: responseText },
+    });
+    span.end();
 
     // 4. Parse the AI Response
     const planData = JSON.parse(responseText);
@@ -81,8 +96,17 @@ export async function POST(req: Request) {
     // Run all database inserts in a transaction (All or Nothing)
     await prisma.$transaction(dbOperations);
 
+    trace.end();
+    await opik.flush();
+
     return NextResponse.json({ success: true, count: dbOperations.length });
   } catch (error) {
+    trace.update({
+      tags: ["error"],
+      metadata: { error_details: JSON.stringify(error) },
+    });
+    trace.end();
+    await opik.flush();
     console.error("Generation Error:", error);
     return NextResponse.json(
       { error: "Failed to generate plan" },
