@@ -170,11 +170,7 @@ Analyze user's request, determine appropriate tools, and take initiative when be
       telemetrySample: telemetrySettings,
     });
 
-    const opik = new Opik({
-      apiKey: process.env.OPIK_API_KEY,
-      workspace: process.env.OPIK_WORKSPACE,
-      project: process.env.OPIK_PROJECT_NAME,
-    });
+    const opik = new Opik({ apiKey: process.env.OPIK_API_KEY });
 
     const trace = opik.trace({
       name: "agent-chat-interaction",
