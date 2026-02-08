@@ -70,16 +70,6 @@ Notes for the model:
 - Return purely JSON (an array) without extra commentary.
     `;
 
-    const telemetrySettings = OpikExporter.getSettings({
-      name: "background-next-week-gen",
-      metadata: { userId },
-    });
-
-    console.log("triggerNextWeekGeneration - telemetrySettings:", {
-      userId,
-      telemetrySettings,
-    });
-
     const result = await generateText({
       model: google("gemini-2.5-flash"),
       system: systemPrompt,
@@ -91,12 +81,10 @@ Notes for the model:
         },
       ],
       maxRetries: 0,
-      experimental_telemetry: telemetrySettings,
-    });
-
-    console.log("triggerNextWeekGeneration result preview:", {
-      preview:
-        typeof result.text === "string" ? result.text.slice(0, 200) : undefined,
+      experimental_telemetry: OpikExporter.getSettings({
+        name: "background-next-week-gen",
+        metadata: { userId },
+      }),
     });
 
     // Parse model output robustly (handle code fences)

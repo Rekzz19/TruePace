@@ -1,6 +1,5 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
 import { Opik } from "opik";
-import { randomUUID } from "crypto";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
@@ -8,20 +7,8 @@ import { prisma } from "@/lib/prisma";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 const opik = new Opik();
 
-console.log("Opik config (onboarding):", {
-  hasKey: !!process.env.OPIK_API_KEY,
-  workspace: process.env.OPIK_WORKSPACE,
-  project: process.env.OPIK_PROJECT_NAME,
-});
-
 export async function POST(req: Request) {
-  const requestId = randomUUID();
-  console.log("onboarding_generation request start", { requestId });
-
-  const trace = opik.trace({
-    name: "onboarding_generation",
-    metadata: { requestId },
-  });
+  const trace = opik.trace({ name: "onboarding_generation" });
 
   try {
     const { userId } = await req.json();
@@ -62,7 +49,6 @@ export async function POST(req: Request) {
       name: "gemini-2.5-flash-onboarding",
       type: "llm",
       input: { prompt },
-      metadata: { requestId, userId: profile?.id },
     });
 
     // 3. Call Gemini with JSON Enforcement
@@ -76,9 +62,10 @@ export async function POST(req: Request) {
     const result = await model.generateContent(prompt);
     const responseText = result.response.text();
 
-    span.update({ output: { text: responseText } });
+    span.update({
+      output: { text: responseText },
+    });
     span.end();
-    console.log("onboarding_generation span ended", { requestId });
 
     // 4. Parse the AI Response
     const planData = JSON.parse(responseText);
@@ -110,9 +97,7 @@ export async function POST(req: Request) {
     await prisma.$transaction(dbOperations);
 
     trace.end();
-    console.log("onboarding_generation flushing opik", { requestId });
     await opik.flush();
-    console.log("onboarding_generation opik flushed", { requestId });
 
     return NextResponse.json({ success: true, count: dbOperations.length });
   } catch (error) {
@@ -121,17 +106,7 @@ export async function POST(req: Request) {
       metadata: { error_details: JSON.stringify(error) },
     });
     trace.end();
-    console.log("onboarding_generation flushing opik after error", {
-      requestId,
-    });
-    try {
-      await opik.flush();
-      console.log("onboarding_generation opik flushed after error", {
-        requestId,
-      });
-    } catch (flushErr) {
-      console.error("Opik flush failed after onboarding error:", flushErr);
-    }
+    await opik.flush();
     console.error("Generation Error:", error);
     return NextResponse.json(
       { error: "Failed to generate plan" },
