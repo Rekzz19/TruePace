@@ -1,3 +1,4 @@
+import { OpikExporter } from "opik-vercel";
 import { prisma } from "@/lib/prisma";
 import { executeToolCall } from "@/lib/ai-execution";
 
@@ -70,7 +71,7 @@ Notes for the model:
     `;
 
     const result = await generateText({
-      model: google("gemini-2.0-flash"),
+      model: google("gemini-2.5-flash"),
       system: systemPrompt,
       messages: [
         {
@@ -80,6 +81,10 @@ Notes for the model:
         },
       ],
       maxRetries: 0,
+      experimental_telemetry: OpikExporter.getSettings({
+        name: "background-next-week-gen",
+        metadata: { userId },
+      }),
     });
 
     // Parse model output robustly (handle code fences)
@@ -292,7 +297,7 @@ Be conservative and prioritize safety.
     `;
 
     const result = await generateText({
-      model: google("gemini-2.0-flash"),
+      model: google("gemini-2.5-flash"),
       system: systemPrompt,
       messages: [
         {
@@ -358,7 +363,7 @@ Be conservative and prioritize safety.
     `;
 
     const result = await generateText({
-      model: google("gemini-2.0-flash"),
+      model: google("gemini-2.5-flash"),
       system: systemPrompt,
       messages: [
         {
@@ -368,6 +373,13 @@ Be conservative and prioritize safety.
         },
       ],
       maxRetries: 0,
+      experimental_telemetry: OpikExporter.getSettings({
+        name: "injury-analysis",
+        metadata: {
+          userId,
+          painReported: injuryDetails.painReported,
+        },
+      }),
     });
 
     // Model outputs can be wrapped in markdown code fences or extra text.
