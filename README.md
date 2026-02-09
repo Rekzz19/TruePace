@@ -21,7 +21,7 @@ TruePace is an **agentic AI running coach** that manages your entire training da
 
 * **Framework:** [Next.js 14](https://nextjs.org/) (App Router)
 * **Language:** TypeScript
-* **AI Model:** Google **Gemini 2.0 Flash** (via Vercel AI SDK)
+* **AI Model:** Google **Gemini 2.5 Flash** (via Vercel AI SDK)
 * **Database:** PostgreSQL (via Prisma ORM)
 * **Auth:** Supabase
 * **Observability:** [Opik by Comet](https://comet.com/opik)
