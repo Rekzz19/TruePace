@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🏃‍♂️ TruePace
 
-## Getting Started
+**The first AI running coach that doesn't just listen—it acts.**
 
-First, run the development server:
+> *Static PDF plans get you injured. TruePace gets you to the finish line.*
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+TruePace is an **agentic AI running coach** that manages your entire training database. Unlike standard chatbots that just give advice, TruePace has direct access to your schedule. It can autonomously reschedule workouts, adjust intensity based on feedback, and enact injury recovery protocols—just like a real human coach.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+---
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## ⚡ Key Features
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+* **🤖 Agentic Chat Interface:** Talk to your coach naturally. Ask to "move tomorrow's run to Friday" or "make this week easier," and the AI executes the database updates instantly.
+* **🏥 Injury Response Protocol:** If you log pain after a run, the AI analyzes the severity and automatically modifies your future schedule (e.g., swapping runs for rest or cross-training).
+* **📅 Dynamic Scheduling:** Onboarding generates a personalized 2-week plan. As you complete runs, the AI monitors your progress and auto-generates subsequent weeks based on performance data.
+* **🧠 Chain of Thought Observability:** Integrated with **Opik** to visualize the AI's decision-making process, tool selection, and latency.
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## 🛠️ Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+* **Framework:** [Next.js 14](https://nextjs.org/) (App Router)
+* **Language:** TypeScript
+* **AI Model:** Google **Gemini 2.0 Flash** (via Vercel AI SDK)
+* **Database:** PostgreSQL (via Prisma ORM)
+* **Auth:** Supabase
+* **Observability:** [Opik by Comet](https://comet.com/opik)
+* **Styling:** Tailwind CSS
