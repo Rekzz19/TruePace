@@ -1,5 +1,7 @@
 # 🏃‍♂️ TruePace
 
+A Hackathon project - [Live Link](https://truepace-hackathon.vercel.app/)
+
 **The first AI running coach that doesn't just listen—it acts.**
 
 > *Static PDF plans get you injured. TruePace gets you to the finish line.*
